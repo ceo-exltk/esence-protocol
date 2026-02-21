@@ -42,15 +42,19 @@ class ClaudeCodeProvider(BaseProvider):
         # Construir el prompt combinando system + historial + último mensaje
         full_prompt = _build_prompt(system, messages)
 
+        # Limpiar CLAUDECODE del entorno para evitar el error de sesión anidada
+        import os
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+
         try:
             proc = await asyncio.create_subprocess_exec(
                 _CLI_PATH,
                 "--print",
                 full_prompt,
                 "--output-format", "text",
-                "--max-tokens", str(max_tokens),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=env,
             )
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(), timeout=self.timeout

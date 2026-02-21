@@ -30,6 +30,9 @@ class Config:
     port: int = int(os.getenv("ESENCE_PORT", "7777"))
     bootstrap_peer: str = os.getenv("ESENCE_BOOTSTRAP_PEER", "")
 
+    # Dev
+    dev_skip_sig: bool = os.getenv("ESENCE_SKIP_SIG_VERIFY", "").lower() in ("1", "true", "yes")
+
     # Paths
     root_dir: Path = _ROOT
     essence_store_dir: Path = _ROOT / "essence-store"

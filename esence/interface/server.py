@@ -54,8 +54,11 @@ def create_app(node: "EsenceNode | None" = None) -> FastAPI:
         message, valid_sig = await receive_message(payload)
 
         if not valid_sig:
-            logger.warning(f"Mensaje con firma inválida de {message.from_did}")
-            raise HTTPException(status_code=401, detail="Firma inválida")
+            if config.dev_skip_sig:
+                logger.warning(f"[DEV] Firma omitida para {message.from_did}")
+            else:
+                logger.warning(f"Mensaje con firma inválida de {message.from_did}")
+                raise HTTPException(status_code=401, detail="Firma inválida")
 
         if node:
             await node.queue.enqueue_inbound(message.model_dump())
