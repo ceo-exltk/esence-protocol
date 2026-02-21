@@ -93,11 +93,17 @@ def create_app(node: "EsenceNode | None" = None) -> FastAPI:
         return JSONResponse({"messages": pending})
 
     @app.post("/api/approve/{thread_id}")
-    async def approve_message(thread_id: str) -> JSONResponse:
-        """Aprueba un mensaje pendiente."""
+    async def approve_message(thread_id: str, request: Request) -> JSONResponse:
+        """Aprueba un mensaje pendiente. Body JSON opcional: {"edited_reply": "..."}"""
         if not node:
             raise HTTPException(status_code=503, detail="Nodo no inicializado")
-        approved = await node.queue.approve(thread_id)
+        edited_reply: str | None = None
+        try:
+            body = await request.json()
+            edited_reply = body.get("edited_reply") if isinstance(body, dict) else None
+        except Exception:
+            pass  # Body vacío o no JSON — OK, se aprueba sin edición
+        approved = await node.queue.approve(thread_id, edited_reply=edited_reply)
         if not approved:
             raise HTTPException(status_code=404, detail="Mensaje no encontrado")
         await ws_manager.broadcast("approved", {"thread_id": thread_id})

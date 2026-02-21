@@ -53,6 +53,7 @@ class EssenceStore:
                 "donation_pct": config.donation_pct,
                 "calls_total": 0,
                 "last_reset": datetime.now(timezone.utc).isoformat(),
+                "autonomy_threshold": 0.6,
             })
 
     # ------------------------------------------------------------------
@@ -157,15 +158,34 @@ class EssenceStore:
     def write_budget(self, data: dict[str, Any]) -> None:
         (self.dir / "budget.json").write_text(json.dumps(data, indent=2))
 
+    def _maybe_reset_budget(self, budget: dict) -> dict:
+        """Si el mes cambió, resetea los contadores de uso. Retorna el budget (posiblemente modificado)."""
+        now = datetime.now(timezone.utc)
+        last_reset_str = budget.get("last_reset", "")
+        try:
+            last_reset = datetime.fromisoformat(last_reset_str)
+        except (ValueError, TypeError):
+            last_reset = now
+
+        if (now.year, now.month) != (last_reset.year, last_reset.month):
+            budget["used_tokens"] = 0
+            budget["calls_total"] = 0
+            budget["last_reset"] = now.isoformat()
+            self.write_budget(budget)
+
+        return budget
+
     def record_usage(self, tokens_used: int) -> None:
-        """Registra uso de tokens en budget.json."""
+        """Registra uso de tokens en budget.json (con reset mensual automático)."""
         budget = self.read_budget()
+        budget = self._maybe_reset_budget(budget)
         budget["used_tokens"] = budget.get("used_tokens", 0) + tokens_used
         budget["calls_total"] = budget.get("calls_total", 0) + 1
         self.write_budget(budget)
 
     def is_over_budget(self) -> bool:
         budget = self.read_budget()
+        budget = self._maybe_reset_budget(budget)
         limit = budget.get("monthly_limit_tokens", 500_000)
         used = budget.get("used_tokens", 0)
         return used >= limit

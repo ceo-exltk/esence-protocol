@@ -20,6 +20,7 @@ class MessageType(str, Enum):
 
 class MessageStatus(str, Enum):
     PENDING_HUMAN_REVIEW = "pending_human_review"
+    AUTO_APPROVED = "auto_approved"
     APPROVED = "approved"
     SENT = "sent"
     ANSWERED = "answered"

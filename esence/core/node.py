@@ -19,7 +19,7 @@ from esence.core.queue import MessageQueue
 from esence.essence.engine import EssenceEngine
 from esence.essence.maturity import calculate_maturity, maturity_label
 from esence.essence.store import EssenceStore
-from esence.protocol.message import MessageStatus
+from esence.protocol.message import MessageStatus, MessageType, PeerIntro
 from esence.protocol.peers import PeerManager
 from esence.protocol.transport import send_message
 
@@ -79,11 +79,16 @@ class EsenceNode:
         self._running = True
         logger.info(f"Interfaz en http://localhost:{config.port}")
 
+        # Bootstrap: conectar con peer inicial si está configurado
+        if config.bootstrap_peer:
+            asyncio.create_task(self._bootstrap_peer(config.bootstrap_peer))
+
         # Lanzar tareas concurrentes
         await asyncio.gather(
             self._run_http_server(),
             self._process_inbound_loop(),
             self._process_outbound_loop(),
+            self._gossip_loop(),
         )
 
     def _create_minimal_store(self) -> None:
@@ -142,8 +147,18 @@ class EsenceNode:
         sender_did = message.get("from_did", "")
         content = message.get("content", "")
         thread_id = message.get("thread_id", "")
+        msg_type = message.get("type", "")
 
-        logger.info(f"Mensaje inbound de {sender_did[:40]}…")
+        logger.info(f"Mensaje inbound de {sender_did[:40]}… (tipo: {msg_type})")
+
+        # Manejar PeerIntro — actualizar lista de peers por gossip
+        if msg_type == MessageType.PEER_INTRO:
+            known_peers = message.get("known_peers", [])
+            new_count = self.peers.merge_gossip(known_peers, sender_did)
+            if new_count:
+                logger.info(f"Gossip: {new_count} nuevos peers de {sender_did[:40]}…")
+            self.peers.record_interaction(sender_did, successful=True)
+            return
 
         # Registrar interacción con el peer
         self.peers.record_interaction(sender_did, successful=True)
@@ -164,12 +179,21 @@ class EsenceNode:
                     m["proposed_reply"] = proposed
             self.store.write_thread(thread_id, messages)
 
-            # Notificar UI con la propuesta
-            await ws_manager.broadcast("review_ready", {
-                "thread_id": thread_id,
-                "proposed_reply": proposed,
-                "message": message,
-            })
+            # Si el mensaje es auto_approved → aprobar sin revisión humana
+            if message.get("status") == MessageStatus.AUTO_APPROVED:
+                logger.info(f"Auto-aprobando respuesta para {thread_id[:8]}…")
+                await self.queue.approve(thread_id)
+                await ws_manager.broadcast("auto_approved", {
+                    "thread_id": thread_id,
+                    "proposed_reply": proposed,
+                })
+            else:
+                # Notificar UI para revisión humana
+                await ws_manager.broadcast("review_ready", {
+                    "thread_id": thread_id,
+                    "proposed_reply": proposed,
+                    "message": message,
+                })
 
         except Exception as e:
             logger.error(f"Error generando respuesta propuesta: {e}")
@@ -214,6 +238,86 @@ class EsenceNode:
     async def _on_queue_event(self, event_type: str, data: dict) -> None:
         from esence.interface.ws import ws_manager
         await ws_manager.broadcast(event_type, data)
+
+        # Disparar extracción de patrones cada 5 correcciones
+        if event_type == "correction_logged":
+            count = data.get("count", 0)
+            if count > 0 and count % 5 == 0:
+                asyncio.create_task(self._run_pattern_extraction())
+
+    async def _run_pattern_extraction(self) -> None:
+        """Extrae patrones en background después de cada 5 correcciones."""
+        from esence.essence.patterns import extract_patterns
+        try:
+            added = await extract_patterns(self.store, self.engine)
+            if added:
+                logger.info(f"Extracción de patrones completada: {added} nuevos patrones")
+                from esence.interface.ws import ws_manager
+                await ws_manager.broadcast("patterns_updated", {"new_patterns": added})
+        except Exception as e:
+            logger.error(f"Error en extracción de patrones: {e}")
+
+    # ------------------------------------------------------------------
+    # Estado del nodo (para la UI)
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Gossip loop
+    # ------------------------------------------------------------------
+
+    async def _gossip_loop(self) -> None:
+        """Envía PeerIntro a peers de confianza cada 5 minutos."""
+        while self._running:
+            await asyncio.sleep(300)  # 5 min
+            try:
+                await self._send_gossip()
+            except Exception as e:
+                logger.error(f"Error en gossip loop: {e}")
+
+    async def _send_gossip(self) -> None:
+        """Envía PeerIntro con known_peers a todos los peers de confianza."""
+        if not self.identity:
+            return
+        trusted = self.peers.trusted_peers(min_trust=0.4)
+        if not trusted:
+            return
+        known_peers = self.peers.get_gossip_payload()
+        for peer in trusted:
+            peer_did = peer.get("did", "")
+            if not peer_did:
+                continue
+            msg = PeerIntro(
+                from_did=self.identity.did,
+                to_did=peer_did,
+                content="peer_intro",
+                known_peers=known_peers,
+                public_key=self.identity.public_key_b64(),
+            )
+            try:
+                await send_message(msg, self.identity)
+                logger.debug(f"Gossip enviado a {peer_did[:40]}…")
+            except Exception as e:
+                logger.error(f"Error enviando gossip a {peer_did[:40]}: {e}")
+
+    async def _bootstrap_peer(self, peer_did: str) -> None:
+        """Envía PeerIntro al peer de bootstrap al arrancar."""
+        if not self.identity:
+            return
+        logger.info(f"Bootstrap: conectando con {peer_did}")
+        # Registrar el peer
+        self.peers.add_or_update(peer_did, trust_score=0.3)
+        msg = PeerIntro(
+            from_did=self.identity.did,
+            to_did=peer_did,
+            content="peer_intro",
+            known_peers=self.peers.get_gossip_payload(),
+            public_key=self.identity.public_key_b64(),
+        )
+        try:
+            await send_message(msg, self.identity)
+            logger.info(f"Bootstrap PeerIntro enviado a {peer_did}")
+        except Exception as e:
+            logger.warning(f"Error en bootstrap con {peer_did}: {e}")
 
     # ------------------------------------------------------------------
     # Estado del nodo (para la UI)

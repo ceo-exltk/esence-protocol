@@ -28,6 +28,7 @@ class Config:
     # Red
     donation_pct: int = int(os.getenv("ESENCE_DONATION_PCT", "10"))
     port: int = int(os.getenv("ESENCE_PORT", "7777"))
+    bootstrap_peer: str = os.getenv("ESENCE_BOOTSTRAP_PEER", "")
 
     # Paths
     root_dir: Path = _ROOT

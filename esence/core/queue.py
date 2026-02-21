@@ -51,9 +51,31 @@ class MessageQueue:
 
     async def enqueue_inbound(self, message: dict[str, Any]) -> None:
         """Recibe un mensaje entrante y lo pone en la cola inbound."""
-        message.setdefault("status", MessageStatus.PENDING_HUMAN_REVIEW)
+        from esence.essence.maturity import calculate_maturity
+
         thread_id = message.get("thread_id", str(uuid.uuid4()))
         message["thread_id"] = thread_id
+
+        # Determinar status según madurez y autonomía
+        budget = self.store.read_budget()
+        autonomy_threshold = budget.get("autonomy_threshold", 0.6)
+        maturity = calculate_maturity(self.store)
+        from_did = message.get("from_did", "")
+
+        # Verificar trust del remitente
+        peers = self.store.read_peers()
+        peer_trust = next(
+            (p.get("trust_score", 0.0) for p in peers if p.get("did") == from_did),
+            0.0,
+        )
+        peer_trusted = peer_trust >= 0.5
+
+        if maturity >= autonomy_threshold and peer_trusted:
+            status = MessageStatus.AUTO_APPROVED
+        else:
+            status = MessageStatus.PENDING_HUMAN_REVIEW
+
+        message["status"] = status
 
         # Persistir en threads/
         self.store.append_to_thread(thread_id, message)
@@ -106,11 +128,41 @@ class MessageQueue:
 
         await self._emit("status_changed", {"thread_id": thread_id, "status": status})
 
-    async def approve(self, thread_id: str) -> dict[str, Any] | None:
-        """Aprueba un mensaje pendiente y lo mueve a outbound."""
+    async def approve(self, thread_id: str, edited_reply: str | None = None) -> dict[str, Any] | None:
+        """Aprueba un mensaje pendiente y lo mueve a outbound.
+
+        Si edited_reply difiere de proposed_reply, registra la corrección en corrections.log.
+        """
         if thread_id not in self._pending:
             return None
         message = self._pending.pop(thread_id)
+        proposed_reply = message.get("proposed_reply", "")
+
+        # Determinar reply final
+        final_reply = edited_reply if edited_reply is not None else proposed_reply
+
+        # Registrar corrección (siempre — aprobación implícita o con edición)
+        if proposed_reply:
+            correction = {
+                "original": proposed_reply,
+                "edited": final_reply,
+                "thread_id": thread_id,
+                "from_did": message.get("from_did", ""),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            self.store.append_correction(correction)
+
+            # Notificar para trigger de extracción de patrones
+            corrections = self.store.read_corrections()
+            await self._emit("correction_logged", {
+                "count": len(corrections),
+                "thread_id": thread_id,
+            })
+
+        # Actualizar contenido del mensaje con la reply aprobada
+        if final_reply:
+            message["content"] = final_reply
+
         message["status"] = MessageStatus.APPROVED
         await self.mark_status(thread_id, MessageStatus.APPROVED)
         await self.enqueue_outbound(message)
