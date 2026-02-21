@@ -176,6 +176,6 @@ def create_app(node: "EsenceNode | None" = None) -> FastAPI:
         index = STATIC_DIR / "index.html"
         if not index.exists():
             return HTMLResponse("<h1>Esence Node</h1><p>UI not found</p>")
-        return FileResponse(str(index))
+        return FileResponse(str(index), headers={"Cache-Control": "no-cache"})
 
     return app

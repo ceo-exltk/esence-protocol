@@ -11,45 +11,49 @@
   let ws = null;
   let wsReconnectTimer = null;
   let currentReviewThreadId = null;
-  let originalProposal = "";        // para detectar ediciones
+  let originalProposal = "";
   let pendingCount = 0;
   let currentMood = "moderate";
   let nodeState = {};
-  const threads = {};               // thread_id → { msg, el, direction }
+  const threads = {};       // thread_id → { msg, el: bubble, group: groupEl, direction }
+  let lastGroupKey = null;  // "direction:fromDid" of the last prepended group
+  let lastGroupEl = null;   // DOM element of that group
 
   // ------------------------------------------------------------------
   // DOM refs
   // ------------------------------------------------------------------
   const $ = (id) => document.getElementById(id);
-  const statusDot         = $("status-dot");
-  const statusText        = $("status-text");
-  const budgetText        = $("budget-text");
-  const peersText         = $("peers-text");
-  const didText           = $("did-text");
-  const avatarInitials    = $("avatar-initials");
-  const moodDot           = $("mood-dot");
-  const notifBadge        = $("notif-badge");
-  const btnNotif          = $("btn-notif");
-  const feedEmpty         = $("feed-empty");
-  const messagesEl        = $("messages");
-  const reviewCard        = $("review-card");
-  const reviewFrom        = $("review-from");
-  const reviewContent     = $("review-content");
-  const reviewProposal    = $("review-proposal");
-  const reviewLoading     = $("review-loading");
-  const proposalEdit      = $("proposal-edit");
-  const diffIndicator     = $("diff-indicator");
-  const btnApprove        = $("btn-approve");
-  const btnReject         = $("btn-reject");
-  const btnReviewClose    = $("btn-review-close");
-  const learningFeedback  = $("learning-feedback");
-  const inputText         = $("input-text");
-  const btnSend           = $("btn-send");
-  const charCount         = $("char-count");
-  const maturityFill      = $("maturity-fill");
-  const maturityScore     = $("maturity-score");
+  const statusDot          = $("status-dot");
+  const statusText         = $("status-text");
+  const budgetText         = $("budget-text");
+  const peersText          = $("peers-text");
+  const didText            = $("did-text");
+  const avatarInitials     = $("avatar-initials");
+  const moodDot            = $("mood-dot");
+  const notifBadge         = $("notif-badge");
+  const btnNotif           = $("btn-notif");
+  const avatarBtn          = $("avatar-btn");
+  const moodDropdown       = $("mood-dropdown");
+  const feedEmpty          = $("feed-empty");
+  const messagesEl         = $("messages");
+  const reviewCard         = $("review-card");
+  const reviewFrom         = $("review-from");
+  const reviewContent      = $("review-content");
+  const reviewProposal     = $("review-proposal");
+  const reviewLoading      = $("review-loading");
+  const proposalEdit       = $("proposal-edit");
+  const diffIndicator      = $("diff-indicator");
+  const btnApprove         = $("btn-approve");
+  const btnReject          = $("btn-reject");
+  const btnReviewClose     = $("btn-review-close");
+  const learningFeedback   = $("learning-feedback");
+  const inputText          = $("input-text");
+  const btnSend            = $("btn-send");
+  const charCount          = $("char-count");
+  const maturityFill       = $("maturity-fill");
+  const maturityScore      = $("maturity-score");
   const maturityCorrections = $("maturity-corrections");
-  const maturityPatterns  = $("maturity-patterns");
+  const maturityPatterns   = $("maturity-patterns");
 
   // ------------------------------------------------------------------
   // WebSocket
@@ -102,7 +106,6 @@
         break;
 
       case "review_ready":
-        // Engine generó propuesta — actualizar card y review si corresponde
         upsertCard(data.message, "inbound");
         updateReplyBtn(data.thread_id, data.proposed_reply);
         if (!currentReviewThreadId || currentReviewThreadId === data.thread_id) {
@@ -138,7 +141,7 @@
         updateStatus(data.thread_id, "approved");
         if (currentReviewThreadId === data.thread_id) hideReview();
         setPending(Math.max(0, pendingCount - 1));
-        sendWS("get_pending");   // cargar próximo pendiente si hay
+        sendWS("get_pending");
         break;
 
       case "rejected":
@@ -207,28 +210,39 @@
   }
 
   // ------------------------------------------------------------------
-  // Mood
+  // Mood dropdown
   // ------------------------------------------------------------------
 
   function setMoodUI(mood) {
     currentMood = mood;
-
-    // Dot en avatar
     moodDot.className = `mood-dot ${mood}`;
     moodDot.title = { available: "Disponible", moderate: "Moderado", absent: "Ausente", dnd: "No molestar" }[mood] || mood;
-
-    // Botones del selector
     document.querySelectorAll(".mood-btn").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.mood === mood);
     });
   }
 
+  // Toggle dropdown on avatar click
+  avatarBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    moodDropdown.classList.toggle("hidden");
+  });
+
+  // Close dropdown on outside click
+  document.addEventListener("click", (e) => {
+    if (!moodDropdown.contains(e.target) && e.target !== avatarBtn) {
+      moodDropdown.classList.add("hidden");
+    }
+  });
+
+  // Mood button clicks
   document.querySelectorAll(".mood-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       const mood = btn.dataset.mood;
-      if (mood === currentMood) return;
+      if (mood === currentMood) { moodDropdown.classList.add("hidden"); return; }
       sendWS("set_mood", { mood });
-      setMoodUI(mood); // optimistic update
+      setMoodUI(mood);
+      moodDropdown.classList.add("hidden");
       const labels = { available: "● Disponible", moderate: "◑ Moderado", absent: "○ Ausente", dnd: "⊗ No molestar" };
       notify(`Modo: ${labels[mood] || mood}`);
     });
@@ -253,7 +267,7 @@
   btnNotif.addEventListener("click", () => sendWS("get_pending"));
 
   // ------------------------------------------------------------------
-  // Feed
+  // Feed — grouped by sender
   // ------------------------------------------------------------------
 
   function showFeed() {
@@ -261,70 +275,46 @@
     messagesEl.style.display = "block";
   }
 
+  function groupKey(direction, fromDid) {
+    return `${direction}:${fromDid}`;
+  }
+
   function upsertCard(msg, direction) {
     if (!msg) return;
     const tid = msg.thread_id || ("anon-" + Date.now());
     showFeed();
 
+    // If already exists, just update it
     if (threads[tid]) {
-      // Actualizar status
       if (msg.status) updateStatus(tid, msg.status);
-      // Actualizar proposed_reply si llegó
       if (msg.proposed_reply) updateReplyBtn(tid, msg.proposed_reply);
       return;
     }
 
-    const card = buildCard(msg, direction, tid);
-    threads[tid] = { msg, el: card, direction };
-    messagesEl.prepend(card);
-  }
+    const fromDid = msg.from_did || "unknown";
+    const key = groupKey(direction, fromDid);
 
-  function buildCard(msg, direction, tid) {
-    const el = document.createElement("div");
-    el.className = `message-card ${direction}`;
-    el.dataset.threadId = tid;
+    let bubble, groupEl;
 
-    const time  = msg.timestamp ? fmtTime(msg.timestamp) : "";
-    const from  = msg.from_did || "desconocido";
-    const label = direction === "self" ? "tu agente"
-                : direction === "outbound" ? "vos"
-                : shortenDid(from);
-    const ini   = label[0].toUpperCase();
-    const avCls = direction === "self" ? "self-av"
-                : direction === "outbound" ? "outbound-av" : "";
-    const fromCls = direction === "self" ? "self-lbl"
-                  : direction === "outbound" ? "outbound-lbl" : "";
-    const isPending = msg.status === "pending_human_review";
+    if (lastGroupKey === key && lastGroupEl) {
+      // Same sender as the last message — append bubble to existing group
+      groupEl = lastGroupEl;
+      bubble = buildBubble(msg, direction, tid);
+      groupEl.querySelector(".msg-group-body").appendChild(bubble);
+    } else {
+      // New sender or first message — create new group
+      groupEl = buildGroupEl(msg, direction);
+      bubble = buildBubble(msg, direction, tid);
+      groupEl.querySelector(".msg-group-body").appendChild(bubble);
+      messagesEl.prepend(groupEl);
+      lastGroupKey = key;
+      lastGroupEl = groupEl;
+    }
 
-    el.innerHTML = `
-      <div class="msg-header">
-        <div class="msg-from-block">
-          <div class="msg-avatar ${avCls}">${esc(ini)}</div>
-          <span class="msg-from ${fromCls}" title="${esc(from)}">${esc(label)}</span>
-        </div>
-        <div class="msg-meta">
-          <span class="msg-type">${esc(typeLabel(msg.type || ""))}</span>
-          <span class="msg-time">${time}</span>
-        </div>
-      </div>
-      <div class="msg-content">${esc(msg.content || "")}</div>
-      <div class="msg-footer">
-        <span class="msg-status ${msg.status || ""}">${statusLabel(msg.status)}</span>
-        ${direction === "inbound" ? `
-        <div class="msg-actions">
-          <button class="msg-action-btn reply-btn ${isPending ? "pending-action" : ""}"
-                  data-tid="${esc(tid)}"
-                  data-proposed="${esc(msg.proposed_reply || "")}">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
-            </svg>
-            ${isPending ? "Revisar" : "Ver"}
-          </button>
-        </div>` : ""}
-      </div>
-    `;
+    threads[tid] = { msg, el: bubble, group: groupEl, direction };
 
-    const replyBtn = el.querySelector(".reply-btn");
+    // Wire up reply button
+    const replyBtn = bubble.querySelector(".reply-btn");
     if (replyBtn) {
       replyBtn.addEventListener("click", () => {
         const proposed = replyBtn.dataset.proposed || "";
@@ -332,7 +322,63 @@
         reviewCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
       });
     }
+  }
 
+  function buildGroupEl(msg, direction) {
+    const el = document.createElement("div");
+    el.className = `msg-group ${direction}`;
+
+    const fromDid = msg.from_did || "unknown";
+    const label = direction === "self"     ? "tu agente"
+                : direction === "outbound" ? "vos"
+                : shortenDid(fromDid);
+    const ini    = label[0].toUpperCase();
+    const avCls  = direction === "self"     ? "self-av"
+                 : direction === "outbound" ? "outbound-av" : "";
+    const fromCls = direction === "self"     ? "self-lbl"
+                  : direction === "outbound" ? "outbound-lbl" : "";
+
+    el.innerHTML = `
+      <div class="msg-group-header">
+        <div class="msg-avatar ${avCls}">${esc(ini)}</div>
+        <span class="msg-from ${fromCls}" title="${esc(fromDid)}">${esc(label)}</span>
+      </div>
+      <div class="msg-group-body"></div>
+    `;
+    return el;
+  }
+
+  function buildBubble(msg, direction, tid) {
+    const el = document.createElement("div");
+    el.className = "msg-bubble";
+    el.dataset.threadId = tid;
+
+    const time      = msg.timestamp ? fmtTime(msg.timestamp) : "";
+    const isPending = msg.status === "pending_human_review";
+
+    el.innerHTML = `
+      <div class="msg-content">${esc(msg.content || "")}</div>
+      <div class="msg-footer">
+        <div class="msg-meta-row">
+          <span class="msg-type">${esc(typeLabel(msg.type || ""))}</span>
+          <span class="msg-time">${time}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="msg-status ${msg.status || ""}">${statusLabel(msg.status)}</span>
+          ${direction === "inbound" ? `
+          <div class="msg-actions">
+            <button class="msg-action-btn reply-btn ${isPending ? "pending-action" : ""}"
+                    data-tid="${esc(tid)}"
+                    data-proposed="${esc(msg.proposed_reply || "")}">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
+              </svg>
+              ${isPending ? "Revisar" : "Ver"}
+            </button>
+          </div>` : ""}
+        </div>
+      </div>
+    `;
     return el;
   }
 
@@ -341,7 +387,6 @@
     if (!t) return;
     const el = t.el.querySelector(".msg-status");
     if (el) { el.className = `msg-status ${status}`; el.textContent = statusLabel(status); }
-    // Cambiar botón reply si ya no está pendiente
     const replyBtn = t.el.querySelector(".reply-btn");
     if (replyBtn && status !== "pending_human_review") {
       replyBtn.classList.remove("pending-action");
@@ -385,7 +430,6 @@
     reviewFrom.title = msg.from_did || "";
     reviewContent.textContent = msg.content || "";
 
-    // Reset learning feedback
     learningFeedback.classList.add("hidden");
     learningFeedback.innerHTML = "";
     btnApprove.disabled = false;
@@ -411,7 +455,6 @@
     originalProposal = "";
   }
 
-  // Detectar ediciones en la propuesta → mostrar diff indicator
   proposalEdit.addEventListener("input", () => {
     const edited = proposalEdit.value !== originalProposal && proposalEdit.value.trim() !== "";
     proposalEdit.classList.toggle("edited", edited);
@@ -424,17 +467,13 @@
 
   btnApprove.addEventListener("click", () => {
     if (!currentReviewThreadId) return;
-
-    const edited = proposalEdit.value.trim();
+    const edited    = proposalEdit.value.trim();
     const wasEdited = edited !== originalProposal && edited !== "";
     const editedReply = edited || null;
 
     sendWS("approve", { thread_id: currentReviewThreadId, edited_reply: editedReply });
-
     btnApprove.disabled = true;
     btnReject.disabled = true;
-
-    // Mostrar learning feedback inmediatamente
     showLearningFeedback(wasEdited, nodeState.corrections_count || 0);
   });
 
@@ -447,35 +486,20 @@
   btnReviewClose.addEventListener("click", hideReview);
 
   function showLearningFeedback(wasEdited, prevCorrections) {
-    const next = prevCorrections + 1;
+    const next  = prevCorrections + 1;
     const toNext = 5 - (next % 5);
 
-    let html = "";
-    if (wasEdited) {
-      html = `
-        <strong>✦ Señal de aprendizaje registrada</strong>
-        <span>El agente tomó nota de tu corrección.</span>
-      `;
-    } else {
-      html = `
-        <strong>✓ Aprobación registrada</strong>
-        <span>El agente confirmó este patrón.</span>
-      `;
-    }
+    let html = wasEdited
+      ? `<strong>✦ Señal de aprendizaje registrada</strong><span>El agente tomó nota de tu corrección.</span>`
+      : `<strong>✓ Aprobación registrada</strong><span>El agente confirmó este patrón.</span>`;
 
-    if (toNext < 5) {
-      html += `<span style="color:var(--text-muted);">${toNext} corrección${toNext !== 1 ? "es" : ""} más para extraer nuevos patrones.</span>`;
-    } else {
-      html += `<span style="color:var(--green);">Extrayendo nuevos patrones de razonamiento…</span>`;
-    }
+    html += toNext < 5
+      ? `<span style="color:var(--text-muted);">${toNext} corrección${toNext !== 1 ? "es" : ""} más para extraer nuevos patrones.</span>`
+      : `<span style="color:var(--green);">Extrayendo nuevos patrones de razonamiento…</span>`;
 
     learningFeedback.innerHTML = html;
     learningFeedback.classList.remove("hidden");
-
-    // Auto-ocultar review después de 2.5s
-    setTimeout(() => {
-      hideReview();
-    }, 2500);
+    setTimeout(() => hideReview(), 2500);
   }
 
   // ------------------------------------------------------------------
@@ -485,10 +509,7 @@
   btnSend.addEventListener("click", sendChat);
 
   inputText.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendChat();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
   });
 
   inputText.addEventListener("input", () => {

@@ -31,12 +31,46 @@
         </svg>
         <span class="notif-badge hidden" id="notif-badge">0</span>
       </button>
-      <!-- User avatar + mood -->
+      <!-- User avatar + mood dot + dropdown -->
       <div class="avatar-wrap" id="avatar-wrap">
-        <div class="user-avatar" id="user-avatar">
-          <span id="avatar-initials">N</span>
+        <button class="avatar-btn" id="avatar-btn" title="Disponibilidad">
+          <div class="user-avatar" id="user-avatar">
+            <span id="avatar-initials">N</span>
+          </div>
+          <span class="mood-dot" id="mood-dot"></span>
+        </button>
+        <!-- Mood dropdown -->
+        <div class="mood-dropdown hidden" id="mood-dropdown">
+          <div class="mood-dropdown-title">Disponibilidad</div>
+          <button class="mood-btn" data-mood="available">
+            <span class="mood-icon available">●</span>
+            <div class="mood-info">
+              <span class="mood-name">Disponible</span>
+              <span class="mood-desc">El agente responde solo</span>
+            </div>
+          </button>
+          <button class="mood-btn" data-mood="moderate">
+            <span class="mood-icon moderate">◑</span>
+            <div class="mood-info">
+              <span class="mood-name">Moderado</span>
+              <span class="mood-desc">Reviso los importantes</span>
+            </div>
+          </button>
+          <button class="mood-btn" data-mood="absent">
+            <span class="mood-icon absent">○</span>
+            <div class="mood-info">
+              <span class="mood-name">Ausente</span>
+              <span class="mood-desc">Acumula, no responde</span>
+            </div>
+          </button>
+          <button class="mood-btn" data-mood="dnd">
+            <span class="mood-icon dnd">⊗</span>
+            <div class="mood-info">
+              <span class="mood-name">No molestar</span>
+              <span class="mood-desc">Rechaza todo</span>
+            </div>
+          </button>
         </div>
-        <span class="mood-dot" id="mood-dot" title="Mood"></span>
       </div>
       <span id="did-text" class="did-pill" title="">—</span>
     </div>
@@ -62,41 +96,6 @@
 
     <!-- Sidebar derecho -->
     <aside id="sidebar">
-
-      <!-- Mood selector -->
-      <div class="mood-card" id="mood-card">
-        <div class="mood-card-title">Disponibilidad</div>
-        <div class="mood-options" id="mood-options">
-          <button class="mood-btn" data-mood="available">
-            <span class="mood-icon available">●</span>
-            <div class="mood-info">
-              <span class="mood-name">Disponible</span>
-              <span class="mood-desc">El agente responde solo</span>
-            </div>
-          </button>
-          <button class="mood-btn active" data-mood="moderate">
-            <span class="mood-icon moderate">◑</span>
-            <div class="mood-info">
-              <span class="mood-name">Moderado</span>
-              <span class="mood-desc">Reviso los importantes</span>
-            </div>
-          </button>
-          <button class="mood-btn" data-mood="absent">
-            <span class="mood-icon absent">○</span>
-            <div class="mood-info">
-              <span class="mood-name">Ausente</span>
-              <span class="mood-desc">Acumula, no responde</span>
-            </div>
-          </button>
-          <button class="mood-btn" data-mood="dnd">
-            <span class="mood-icon dnd">⊗</span>
-            <div class="mood-info">
-              <span class="mood-name">No molestar</span>
-              <span class="mood-desc">Rechaza todo</span>
-            </div>
-          </button>
-        </div>
-      </div>
 
       <!-- Review card -->
       <div id="review-card" class="review-card hidden">

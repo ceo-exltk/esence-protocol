@@ -87,8 +87,17 @@ header {
 }
 .notif-badge.hidden { display: none; }
 
-/* Avatar + mood dot */
-.avatar-wrap { position: relative; display: flex; align-items: center; cursor: default; }
+/* Avatar wrap */
+.avatar-wrap { position: relative; display: flex; align-items: center; }
+
+.avatar-btn {
+  background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; padding: 2px;
+  border-radius: 50%; position: relative;
+  transition: opacity 0.15s;
+}
+.avatar-btn:hover { opacity: 0.8; }
+
 .user-avatar {
   width: 30px; height: 30px; border-radius: 50%;
   background: var(--accent-dim); border: 1.5px solid var(--accent);
@@ -97,7 +106,7 @@ header {
 #avatar-initials { font-family: var(--font); font-size: 12px; font-weight: 700; color: var(--accent); user-select: none; }
 
 .mood-dot {
-  position: absolute; bottom: 0; right: -2px;
+  position: absolute; bottom: 2px; right: 2px;
   width: 10px; height: 10px; border-radius: 50%;
   border: 2px solid var(--bg-surface);
   background: var(--text-dim); transition: background 0.3s;
@@ -106,6 +115,47 @@ header {
 .mood-dot.moderate  { background: var(--amber); }
 .mood-dot.absent    { background: var(--text-muted); }
 .mood-dot.dnd       { background: var(--red); }
+
+/* Mood dropdown */
+.mood-dropdown {
+  position: absolute; top: calc(100% + 10px); right: 0;
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px;
+  width: 228px; z-index: 200;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  animation: slide-in 0.15s ease;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.mood-dropdown.hidden { display: none; }
+
+.mood-dropdown-title {
+  font-family: var(--font); font-size: 10px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.6px;
+  padding: 0 2px 8px; border-bottom: 1px solid var(--border); margin-bottom: 2px;
+}
+
+.mood-btn {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 8px 10px; cursor: pointer;
+  display: flex; align-items: center; gap: 8px;
+  transition: all 0.15s; text-align: left; width: 100%;
+}
+.mood-btn:hover { border-color: var(--border-hover); }
+.mood-btn.active { background: var(--bg); border-color: var(--border-hover); }
+.mood-btn.active[data-mood="available"] { background: var(--green-dim); border-color: #2a6040; }
+.mood-btn.active[data-mood="moderate"]  { background: var(--amber-dim); border-color: #4a3200; }
+.mood-btn.active[data-mood="absent"]    { background: var(--bg-elevated); border-color: #404040; }
+.mood-btn.active[data-mood="dnd"]       { background: var(--red-dim); border-color: #4a1a1a; }
+
+.mood-icon { font-size: 14px; flex-shrink: 0; line-height: 1; }
+.mood-icon.available { color: var(--green); }
+.mood-icon.moderate  { color: var(--amber); }
+.mood-icon.absent    { color: var(--text-muted); }
+.mood-icon.dnd       { color: var(--red); }
+
+.mood-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.mood-name { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mood-desc { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .did-pill {
   font-family: var(--font); font-size: 11px; color: var(--text-dim);
@@ -144,23 +194,37 @@ main {
 .feed-empty-icon { color: var(--text-dim); }
 .feed-sub { font-size: 12px; color: var(--text-dim); }
 
-/* Message card */
-.message-card {
-  background: var(--bg-surface); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 14px; margin-bottom: 8px;
-  transition: border-color 0.15s;
-  position: relative;
+/* ============================================================
+   Message groups
+   ============================================================ */
+
+.msg-group {
+  margin-bottom: 16px;
 }
-.message-card:hover               { border-color: var(--border-hover); }
-.message-card:hover .msg-actions  { opacity: 1; pointer-events: auto; }
-.message-card.inbound  { border-left: 3px solid var(--accent); }
-.message-card.outbound { border-left: 3px solid var(--green-mid); }
-.message-card.self     { border-left: 3px solid var(--text-dim); background: var(--bg); }
 
-.msg-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px; }
+.msg-group-header {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 6px; padding: 0 2px;
+}
 
-.msg-from-block { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.msg-group-body {
+  display: flex; flex-direction: column; gap: 3px;
+}
 
+/* Individual message bubble */
+.msg-bubble {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 12px 14px;
+  transition: border-color 0.15s; position: relative;
+}
+.msg-bubble:hover               { border-color: var(--border-hover); }
+.msg-bubble:hover .msg-actions  { opacity: 1; pointer-events: auto; }
+
+.msg-group.inbound  .msg-bubble { border-left: 3px solid var(--accent); }
+.msg-group.outbound .msg-bubble { border-left: 3px solid var(--green-mid); }
+.msg-group.self     .msg-bubble { border-left: 3px solid var(--text-dim); background: var(--bg); }
+
+/* Avatar in group header */
 .msg-avatar {
   width: 24px; height: 24px; border-radius: 50%;
   background: var(--accent-dim); border: 1px solid var(--accent);
@@ -175,13 +239,14 @@ main {
 .msg-from.outbound-lbl { color: var(--text-muted); }
 .msg-from.self-lbl     { color: var(--green); }
 
-.msg-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-.msg-type { font-family: var(--font); font-size: 10px; color: var(--text-dim); background: var(--bg-elevated); padding: 2px 5px; border-radius: 3px; }
-.msg-time { font-family: var(--font); font-size: 10px; color: var(--text-dim); white-space: nowrap; }
-
-.msg-content { color: var(--text); font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; margin-bottom: 10px; }
+/* Bubble content */
+.msg-content { color: var(--text); font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; margin-bottom: 8px; }
 
 .msg-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.msg-meta-row { display: flex; align-items: center; gap: 6px; }
+
+.msg-type { font-family: var(--font); font-size: 10px; color: var(--text-dim); background: var(--bg-elevated); padding: 2px 5px; border-radius: 3px; }
+.msg-time { font-family: var(--font); font-size: 10px; color: var(--text-dim); white-space: nowrap; }
 
 .msg-status {
   font-family: var(--font); font-size: 10px; padding: 2px 7px;
@@ -209,45 +274,6 @@ main {
    ============================================================ */
 
 #sidebar { display: flex; flex-direction: column; gap: 12px; padding: 14px; overflow-y: auto; background: var(--bg); }
-
-/* ============================================================
-   Mood card
-   ============================================================ */
-
-.mood-card {
-  background: var(--bg-surface); border: 1px solid var(--border);
-  border-radius: var(--r); padding: 14px;
-}
-
-.mood-card-title {
-  font-family: var(--font); font-size: 10px; color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 10px;
-}
-
-.mood-options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-
-.mood-btn {
-  background: var(--bg-elevated); border: 1px solid var(--border);
-  border-radius: var(--r-sm); padding: 8px 10px; cursor: pointer;
-  display: flex; align-items: center; gap: 8px;
-  transition: all 0.15s; text-align: left;
-}
-.mood-btn:hover { border-color: var(--border-hover); }
-.mood-btn.active { background: var(--bg); border-color: var(--border-hover); }
-.mood-btn.active[data-mood="available"] { background: var(--green-dim); border-color: #2a6040; }
-.mood-btn.active[data-mood="moderate"]  { background: var(--amber-dim); border-color: #4a3200; }
-.mood-btn.active[data-mood="absent"]    { background: var(--bg-elevated); border-color: #404040; }
-.mood-btn.active[data-mood="dnd"]       { background: var(--red-dim); border-color: #4a1a1a; }
-
-.mood-icon { font-size: 14px; flex-shrink: 0; line-height: 1; }
-.mood-icon.available { color: var(--green); }
-.mood-icon.moderate  { color: var(--amber); }
-.mood-icon.absent    { color: var(--text-muted); }
-.mood-icon.dnd       { color: var(--red); }
-
-.mood-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.mood-name { font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mood-desc { font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* ============================================================
    Review card
