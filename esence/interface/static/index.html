@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Esence Node</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header id="header">
+    <div class="header-left">
+      <span class="logo">esence</span>
+      <span class="version">v0.2</span>
+    </div>
+    <div class="header-right">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">conectando...</span>
+      <span class="separator">·</span>
+      <span id="budget-text">—</span>
+      <span class="separator">·</span>
+      <span id="peers-text">0 peers</span>
+      <span class="separator">·</span>
+      <span id="did-text" title="DID del nodo">—</span>
+    </div>
+  </header>
+
+  <!-- Main layout -->
+  <main>
+    <!-- Feed central -->
+    <section id="feed">
+      <div id="feed-empty" class="feed-empty">
+        <p>El agente está esperando mensajes.</p>
+        <p class="feed-sub">Cuando lleguen mensajes de otros nodos aparecerán aquí.</p>
+      </div>
+      <div id="messages"></div>
+    </section>
+
+    <!-- Panel derecho: review card + input -->
+    <aside id="sidebar">
+      <!-- Review card (oculta por defecto) -->
+      <div id="review-card" class="review-card hidden">
+        <div class="review-header">
+          <span class="review-badge">Revisión pendiente</span>
+          <span id="review-from" class="review-from">—</span>
+        </div>
+        <div id="review-content" class="review-content"></div>
+        <div id="review-proposal" class="review-proposal hidden">
+          <p class="proposal-label">Respuesta propuesta:</p>
+          <div id="proposal-text" class="proposal-text"></div>
+        </div>
+        <div class="review-actions">
+          <button id="btn-approve" class="btn btn-approve">Aprobar</button>
+          <button id="btn-reject" class="btn btn-reject">Rechazar</button>
+        </div>
+      </div>
+
+      <!-- Maturity indicator -->
+      <div id="maturity-card" class="maturity-card">
+        <span class="maturity-label">Essence maturity</span>
+        <div class="maturity-bar">
+          <div id="maturity-fill" class="maturity-fill" style="width: 0%"></div>
+        </div>
+        <span id="maturity-score" class="maturity-score">nascent</span>
+      </div>
+
+      <!-- Input del dueño -->
+      <div id="chat-input">
+        <textarea
+          id="input-text"
+          placeholder="Hablá con tu agente..."
+          rows="3"
+          maxlength="2000"
+        ></textarea>
+        <div class="input-actions">
+          <span id="char-count" class="char-count">0 / 2000</span>
+          <button id="btn-send" class="btn btn-send">Enviar</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

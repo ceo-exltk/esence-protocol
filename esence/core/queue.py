@@ -1,0 +1,146 @@
+"""
+esence/core/queue.py — Cola asyncio inbound/outbound con persistencia en threads/
+"""
+from __future__ import annotations
+
+import asyncio
+import json
+import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, Awaitable
+
+from esence.config import config
+from esence.essence.store import EssenceStore
+from esence.protocol.message import EsenceMessage, MessageStatus
+
+
+class MessageQueue:
+    """
+    Cola de mensajes con dos canales: inbound y outbound.
+
+    - inbound: mensajes recibidos de otros nodos, esperan revisión humana
+    - outbound: mensajes a enviar, generados por el agente o aprobados por el dueño
+    """
+
+    def __init__(self, store: EssenceStore | None = None):
+        self.store = store or EssenceStore()
+        self._inbound: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self._outbound: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self._pending: dict[str, dict[str, Any]] = {}  # thread_id → message
+        self._subscribers: list[Callable[[str, dict], Awaitable[None]]] = []
+
+    # ------------------------------------------------------------------
+    # Suscripción a eventos
+    # ------------------------------------------------------------------
+
+    def subscribe(self, callback: Callable[[str, dict], Awaitable[None]]) -> None:
+        """Registra un callback async que se llama con (event_type, data)."""
+        self._subscribers.append(callback)
+
+    async def _emit(self, event_type: str, data: dict) -> None:
+        for cb in self._subscribers:
+            try:
+                await cb(event_type, data)
+            except Exception:
+                pass
+
+    # ------------------------------------------------------------------
+    # Inbound
+    # ------------------------------------------------------------------
+
+    async def enqueue_inbound(self, message: dict[str, Any]) -> None:
+        """Recibe un mensaje entrante y lo pone en la cola inbound."""
+        message.setdefault("status", MessageStatus.PENDING_HUMAN_REVIEW)
+        thread_id = message.get("thread_id", str(uuid.uuid4()))
+        message["thread_id"] = thread_id
+
+        # Persistir en threads/
+        self.store.append_to_thread(thread_id, message)
+        self._pending[thread_id] = message
+
+        await self._inbound.put(message)
+        await self._emit("inbound_message", message)
+
+    async def dequeue_inbound(self) -> dict[str, Any]:
+        """Espera y retorna el próximo mensaje inbound."""
+        return await self._inbound.get()
+
+    async def peek_pending(self) -> list[dict[str, Any]]:
+        """Retorna todos los mensajes pendientes de revisión."""
+        return [
+            m for m in self._pending.values()
+            if m.get("status") == MessageStatus.PENDING_HUMAN_REVIEW
+        ]
+
+    # ------------------------------------------------------------------
+    # Outbound
+    # ------------------------------------------------------------------
+
+    async def enqueue_outbound(self, message: dict[str, Any]) -> None:
+        """Agrega un mensaje a la cola de salida."""
+        thread_id = message.get("thread_id", str(uuid.uuid4()))
+        message["thread_id"] = thread_id
+        self.store.append_to_thread(thread_id, message)
+        await self._outbound.put(message)
+        await self._emit("outbound_queued", message)
+
+    async def dequeue_outbound(self) -> dict[str, Any]:
+        """Espera y retorna el próximo mensaje outbound para enviar."""
+        return await self._outbound.get()
+
+    # ------------------------------------------------------------------
+    # Gestión de status
+    # ------------------------------------------------------------------
+
+    async def mark_status(self, thread_id: str, status: MessageStatus) -> None:
+        """Actualiza el status de un mensaje en memoria y en disco."""
+        if thread_id in self._pending:
+            self._pending[thread_id]["status"] = status
+
+        messages = self.store.read_thread(thread_id)
+        for msg in messages:
+            if msg.get("thread_id") == thread_id:
+                msg["status"] = status
+        self.store.write_thread(thread_id, messages)
+
+        await self._emit("status_changed", {"thread_id": thread_id, "status": status})
+
+    async def approve(self, thread_id: str) -> dict[str, Any] | None:
+        """Aprueba un mensaje pendiente y lo mueve a outbound."""
+        if thread_id not in self._pending:
+            return None
+        message = self._pending.pop(thread_id)
+        message["status"] = MessageStatus.APPROVED
+        await self.mark_status(thread_id, MessageStatus.APPROVED)
+        await self.enqueue_outbound(message)
+        return message
+
+    async def reject(self, thread_id: str) -> None:
+        """Rechaza un mensaje pendiente."""
+        if thread_id in self._pending:
+            self._pending.pop(thread_id)
+        await self.mark_status(thread_id, MessageStatus.REJECTED)
+
+    # ------------------------------------------------------------------
+    # Recuperación desde disco (al arrancar)
+    # ------------------------------------------------------------------
+
+    def restore_pending(self) -> None:
+        """Recarga mensajes pendientes desde threads/ al arrancar el nodo."""
+        for thread_id in self.store.list_threads():
+            messages = self.store.read_thread(thread_id)
+            if not messages:
+                continue
+            last = messages[-1]
+            if last.get("status") == MessageStatus.PENDING_HUMAN_REVIEW:
+                self._pending[thread_id] = last
+
+    def qsize_inbound(self) -> int:
+        return self._inbound.qsize()
+
+    def qsize_outbound(self) -> int:
+        return self._outbound.qsize()
+
+    def pending_count(self) -> int:
+        return len(self._pending)
