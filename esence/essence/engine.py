@@ -1,19 +1,19 @@
 """
-esence/essence/engine.py — Interfaz async con el AI provider
+esence/essence/engine.py — Motor de generación de respuestas
 
-Construye el system prompt desde el essence store y genera respuestas.
+Construye el system prompt desde el essence store y delega la generación
+al provider configurado (anthropic, claude_code, ollama, openai).
 """
 from __future__ import annotations
 
-import json
+import logging
 from typing import AsyncIterator
-
-import anthropic
 
 from esence.config import config
 from esence.essence.maturity import calculate_maturity, maturity_label
 from esence.essence.store import EssenceStore
 
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT_TEMPLATE = """Sos el agente digital de {name} en la red Esence.
 
@@ -45,14 +45,16 @@ Essence maturity: {maturity_score} ({maturity_label})
 class EssenceEngine:
     """Motor de generación de respuestas basado en el essence store."""
 
-    def __init__(self, store: EssenceStore | None = None):
+    def __init__(self, store: EssenceStore | None = None, provider=None):
         self.store = store or EssenceStore()
-        self._client: anthropic.AsyncAnthropic | None = None
+        self._provider = provider  # inyectado o lazy-loaded
 
-    def _get_client(self) -> anthropic.AsyncAnthropic:
-        if self._client is None:
-            self._client = anthropic.AsyncAnthropic(api_key=config.anthropic_api_key)
-        return self._client
+    def _get_provider(self):
+        if self._provider is None:
+            from esence.essence.providers import get_provider
+            self._provider = get_provider()
+            logger.info(f"Provider AI: {self._provider.name}")
+        return self._provider
 
     def _build_system_prompt(self, instruction: str = "") -> str:
         """Construye el system prompt completo desde el essence store."""
@@ -85,41 +87,25 @@ class EssenceEngine:
         self,
         user_message: str,
         context_messages: list[dict] | None = None,
-        model: str = "claude-sonnet-4-6",
         max_tokens: int = 1024,
     ) -> str:
-        """
-        Genera una respuesta propuesta para el mensaje entrante.
-        Retorna el texto de la respuesta.
-        """
+        """Genera una respuesta propuesta. Retorna el texto."""
         if self.store.is_over_budget():
             return "[budget_exceeded: el nodo ha alcanzado su límite mensual de tokens]"
 
-        client = self._get_client()
+        provider = self._get_provider()
         system = self._build_system_prompt()
-
         messages = list(context_messages or [])
         messages.append({"role": "user", "content": user_message})
 
-        response = await client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=messages,
-        )
-
-        # Registrar uso
-        usage = response.usage
-        tokens_used = (usage.input_tokens or 0) + (usage.output_tokens or 0)
-        self.store.record_usage(tokens_used)
-
-        return response.content[0].text if response.content else ""
+        response = await provider.complete(system, messages, max_tokens)
+        self.store.record_usage(response.total_tokens)
+        return response.text
 
     async def generate_stream(
         self,
         user_message: str,
         context_messages: list[dict] | None = None,
-        model: str = "claude-sonnet-4-6",
         max_tokens: int = 1024,
     ) -> AsyncIterator[str]:
         """Versión streaming de generate()."""
@@ -127,26 +113,13 @@ class EssenceEngine:
             yield "[budget_exceeded]"
             return
 
-        client = self._get_client()
+        provider = self._get_provider()
         system = self._build_system_prompt()
-
         messages = list(context_messages or [])
         messages.append({"role": "user", "content": user_message})
 
-        async with client.messages.stream(
-            model=model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=messages,
-        ) as stream:
-            async for text in stream.text_stream:
-                yield text
-
-            # Registrar uso al final
-            final = await stream.get_final_message()
-            usage = final.usage
-            tokens_used = (usage.input_tokens or 0) + (usage.output_tokens or 0)
-            self.store.record_usage(tokens_used)
+        async for chunk in provider.stream(system, messages, max_tokens):
+            yield chunk
 
     async def generate_self_response(self, owner_message: str) -> str:
         """El dueño habla con su propio agente (interfaz local)."""
@@ -156,14 +129,12 @@ class EssenceEngine:
             "Podés hacer preguntas para conocerlo mejor."
         )
         system = self._build_system_prompt(instruction=instruction)
+        provider = self._get_provider()
 
-        client = self._get_client()
-        response = await client.messages.create(
-            model="claude-sonnet-4-6",
+        response = await provider.complete(
+            system,
+            [{"role": "user", "content": owner_message}],
             max_tokens=1024,
-            system=system,
-            messages=[{"role": "user", "content": owner_message}],
         )
-        usage = response.usage
-        self.store.record_usage((usage.input_tokens or 0) + (usage.output_tokens or 0))
-        return response.content[0].text if response.content else ""
+        self.store.record_usage(response.total_tokens)
+        return response.text

@@ -16,8 +16,8 @@ load_dotenv(_ROOT / ".env")
 class Config:
     """Settings del nodo Esence. Todos los valores vienen de variables de entorno."""
 
-    # AI provider
-    provider: str = os.getenv("ESENCE_PROVIDER", "anthropic")
+    # AI provider (anthropic | claude_code | ollama | openai)
+    provider: str = os.getenv("ESENCE_PROVIDER", "auto")
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
 
@@ -51,6 +51,8 @@ class Config:
             errors.append("ESENCE_NODE_NAME no configurado")
         if cls.provider == "anthropic" and not cls.anthropic_api_key:
             errors.append("ANTHROPIC_API_KEY no configurado")
+        if cls.provider == "openai" and not cls.openai_api_key:
+            errors.append("OPENAI_API_KEY no configurado")
         return errors
 
 
