@@ -118,6 +118,16 @@ class WSManager:
             pending = await self._node.queue.peek_pending()
             await self._send_to(ws, "pending_messages", {"messages": pending})
 
+        elif msg_type == "set_mood":
+            mood = msg.get("mood")
+            if mood:
+                try:
+                    self._node.store.set_mood(mood)
+                    await self._send_to(ws, "mood_changed", {"mood": mood})
+                    await self._send_to(ws, "node_state", await self._build_state())
+                except ValueError as e:
+                    await self._send_to(ws, "error", {"message": str(e)})
+
         else:
             await self._send_to(ws, "error", {"message": f"Tipo desconocido: {msg_type}"})
 

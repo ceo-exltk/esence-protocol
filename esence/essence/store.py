@@ -54,6 +54,7 @@ class EssenceStore:
                 "calls_total": 0,
                 "last_reset": datetime.now(timezone.utc).isoformat(),
                 "autonomy_threshold": 0.6,
+                "mood": "moderate",
             })
 
     # ------------------------------------------------------------------
@@ -181,6 +182,19 @@ class EssenceStore:
         budget = self._maybe_reset_budget(budget)
         budget["used_tokens"] = budget.get("used_tokens", 0) + tokens_used
         budget["calls_total"] = budget.get("calls_total", 0) + 1
+        self.write_budget(budget)
+
+    def get_mood(self) -> str:
+        """Retorna el mood actual: available | moderate | absent | dnd"""
+        return self.read_budget().get("mood", "moderate")
+
+    def set_mood(self, mood: str) -> None:
+        """Actualiza el mood de disponibilidad."""
+        valid = {"available", "moderate", "absent", "dnd"}
+        if mood not in valid:
+            raise ValueError(f"Mood inválido: {mood}. Válidos: {valid}")
+        budget = self.read_budget()
+        budget["mood"] = mood
         self.write_budget(budget)
 
     def is_over_budget(self) -> bool:

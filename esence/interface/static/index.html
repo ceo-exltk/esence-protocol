@@ -7,76 +7,224 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+
   <!-- Header -->
   <header id="header">
     <div class="header-left">
       <span class="logo">esence</span>
       <span class="version">v0.2</span>
     </div>
-    <div class="header-right">
+    <div class="header-center">
       <span class="status-dot" id="status-dot"></span>
       <span id="status-text">conectando...</span>
-      <span class="separator">·</span>
+      <span class="sep">·</span>
       <span id="budget-text">—</span>
-      <span class="separator">·</span>
+      <span class="sep">·</span>
       <span id="peers-text">0 peers</span>
-      <span class="separator">·</span>
-      <span id="did-text" title="DID del nodo">—</span>
+    </div>
+    <div class="header-right">
+      <!-- Notification bell -->
+      <button class="icon-btn" id="btn-notif" title="Mensajes pendientes">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span class="notif-badge hidden" id="notif-badge">0</span>
+      </button>
+      <!-- User avatar + mood -->
+      <div class="avatar-wrap" id="avatar-wrap">
+        <div class="user-avatar" id="user-avatar">
+          <span id="avatar-initials">N</span>
+        </div>
+        <span class="mood-dot" id="mood-dot" title="Mood"></span>
+      </div>
+      <span id="did-text" class="did-pill" title="">—</span>
     </div>
   </header>
 
   <!-- Main layout -->
   <main>
+
     <!-- Feed central -->
     <section id="feed">
       <div id="feed-empty" class="feed-empty">
+        <div class="feed-empty-icon">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
         <p>El agente está esperando mensajes.</p>
         <p class="feed-sub">Cuando lleguen mensajes de otros nodos aparecerán aquí.</p>
       </div>
       <div id="messages"></div>
     </section>
 
-    <!-- Panel derecho: review card + input -->
+    <!-- Sidebar derecho -->
     <aside id="sidebar">
-      <!-- Review card (oculta por defecto) -->
-      <div id="review-card" class="review-card hidden">
-        <div class="review-header">
-          <span class="review-badge">Revisión pendiente</span>
-          <span id="review-from" class="review-from">—</span>
-        </div>
-        <div id="review-content" class="review-content"></div>
-        <div id="review-proposal" class="review-proposal hidden">
-          <p class="proposal-label">Respuesta propuesta:</p>
-          <div id="proposal-text" class="proposal-text"></div>
-        </div>
-        <div class="review-actions">
-          <button id="btn-approve" class="btn btn-approve">Aprobar</button>
-          <button id="btn-reject" class="btn btn-reject">Rechazar</button>
+
+      <!-- Mood selector -->
+      <div class="mood-card" id="mood-card">
+        <div class="mood-card-title">Disponibilidad</div>
+        <div class="mood-options" id="mood-options">
+          <button class="mood-btn" data-mood="available">
+            <span class="mood-icon available">●</span>
+            <div class="mood-info">
+              <span class="mood-name">Disponible</span>
+              <span class="mood-desc">El agente responde solo</span>
+            </div>
+          </button>
+          <button class="mood-btn active" data-mood="moderate">
+            <span class="mood-icon moderate">◑</span>
+            <div class="mood-info">
+              <span class="mood-name">Moderado</span>
+              <span class="mood-desc">Reviso los importantes</span>
+            </div>
+          </button>
+          <button class="mood-btn" data-mood="absent">
+            <span class="mood-icon absent">○</span>
+            <div class="mood-info">
+              <span class="mood-name">Ausente</span>
+              <span class="mood-desc">Acumula, no responde</span>
+            </div>
+          </button>
+          <button class="mood-btn" data-mood="dnd">
+            <span class="mood-icon dnd">⊗</span>
+            <div class="mood-info">
+              <span class="mood-name">No molestar</span>
+              <span class="mood-desc">Rechaza todo</span>
+            </div>
+          </button>
         </div>
       </div>
 
-      <!-- Maturity indicator -->
-      <div id="maturity-card" class="maturity-card">
-        <span class="maturity-label">Essence maturity</span>
+      <!-- Review card -->
+      <div id="review-card" class="review-card hidden">
+        <div class="review-header">
+          <div class="review-title-row">
+            <span class="review-badge">
+              <span class="pulse-dot"></span>
+              Revisión pendiente
+            </span>
+            <button class="icon-btn" id="btn-review-close" title="Cerrar">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div class="review-meta">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+            </svg>
+            <span id="review-from" class="review-from">—</span>
+          </div>
+        </div>
+
+        <!-- Mensaje recibido -->
+        <div class="review-block">
+          <div class="review-block-label">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            </svg>
+            Mensaje recibido
+          </div>
+          <div id="review-content" class="review-content"></div>
+        </div>
+
+        <!-- Propuesta del agente -->
+        <div id="review-proposal" class="review-block proposal-block hidden">
+          <div class="review-block-label-row">
+            <div class="review-block-label">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+              </svg>
+              Respuesta propuesta
+            </div>
+            <span class="edit-hint">editá para ajustar</span>
+          </div>
+          <textarea
+            id="proposal-edit"
+            class="proposal-edit"
+            rows="5"
+            placeholder="La respuesta propuesta aparecerá aquí…"
+          ></textarea>
+          <!-- Diff indicator -->
+          <div class="diff-indicator hidden" id="diff-indicator">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+            </svg>
+            Editaste la respuesta — esto es una señal de aprendizaje
+          </div>
+        </div>
+
+        <!-- Loading spinner -->
+        <div id="review-loading" class="review-loading hidden">
+          <span class="spinner"></span>
+          Generando respuesta…
+        </div>
+
+        <!-- Acciones -->
+        <div class="review-actions">
+          <button id="btn-approve" class="btn btn-approve">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Aprobar
+          </button>
+          <button id="btn-reject" class="btn btn-reject">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            Rechazar
+          </button>
+        </div>
+
+        <!-- Learning feedback (aparece al aprobar) -->
+        <div id="learning-feedback" class="learning-feedback hidden"></div>
+      </div>
+
+      <!-- Maturity card -->
+      <div class="maturity-card" id="maturity-card">
+        <div class="maturity-header">
+          <span class="maturity-label">Essence maturity</span>
+          <span id="maturity-score" class="maturity-score">nascent</span>
+        </div>
         <div class="maturity-bar">
           <div id="maturity-fill" class="maturity-fill" style="width: 0%"></div>
         </div>
-        <span id="maturity-score" class="maturity-score">nascent</span>
+        <div class="maturity-stats">
+          <span id="maturity-corrections" class="maturity-stat">0 correcciones</span>
+          <span class="maturity-stat-sep">·</span>
+          <span id="maturity-patterns" class="maturity-stat">0 patrones</span>
+        </div>
       </div>
 
-      <!-- Input del dueño -->
+      <!-- Chat con propio agente -->
       <div id="chat-input">
+        <div class="chat-label">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          Hablá con tu agente
+        </div>
         <textarea
           id="input-text"
-          placeholder="Hablá con tu agente..."
+          placeholder="Enter para enviar · Shift+Enter para nueva línea"
           rows="3"
           maxlength="2000"
         ></textarea>
         <div class="input-actions">
           <span id="char-count" class="char-count">0 / 2000</span>
-          <button id="btn-send" class="btn btn-send">Enviar</button>
+          <button id="btn-send" class="btn btn-send">
+            Enviar
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
         </div>
       </div>
+
     </aside>
   </main>
 

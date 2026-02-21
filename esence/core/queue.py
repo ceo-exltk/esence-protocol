@@ -50,28 +50,45 @@ class MessageQueue:
     # ------------------------------------------------------------------
 
     async def enqueue_inbound(self, message: dict[str, Any]) -> None:
-        """Recibe un mensaje entrante y lo pone en la cola inbound."""
+        """Recibe un mensaje entrante. El mood de disponibilidad define el routing."""
         from esence.essence.maturity import calculate_maturity
 
         thread_id = message.get("thread_id", str(uuid.uuid4()))
         message["thread_id"] = thread_id
 
-        # Determinar status según madurez y autonomía
-        budget = self.store.read_budget()
-        autonomy_threshold = budget.get("autonomy_threshold", 0.6)
-        maturity = calculate_maturity(self.store)
+        mood = self.store.get_mood()
         from_did = message.get("from_did", "")
 
-        # Verificar trust del remitente
+        # Trust del remitente
         peers = self.store.read_peers()
         peer_trust = next(
             (p.get("trust_score", 0.0) for p in peers if p.get("did") == from_did),
             0.0,
         )
-        peer_trusted = peer_trust >= 0.5
 
-        if maturity >= autonomy_threshold and peer_trusted:
+        # Routing por mood
+        # dnd → rechazar inmediatamente sin generar respuesta
+        if mood == "dnd":
+            message["status"] = MessageStatus.REJECTED
+            self.store.append_to_thread(thread_id, message)
+            await self._emit("rejected", {"thread_id": thread_id})
+            return
+
+        # available → auto-aprobar si trust mínimo
+        if mood == "available" and peer_trust >= 0.3:
             status = MessageStatus.AUTO_APPROVED
+
+        # moderate → auto-aprobar con madurez + trust alto
+        elif mood == "moderate":
+            maturity = calculate_maturity(self.store)
+            budget = self.store.read_budget()
+            threshold = budget.get("autonomy_threshold", 0.6)
+            if maturity >= threshold and peer_trust >= 0.5:
+                status = MessageStatus.AUTO_APPROVED
+            else:
+                status = MessageStatus.PENDING_HUMAN_REVIEW
+
+        # absent → siempre pending, el dueño revisa cuando vuelve
         else:
             status = MessageStatus.PENDING_HUMAN_REVIEW
 

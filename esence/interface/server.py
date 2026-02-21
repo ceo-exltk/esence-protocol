@@ -112,6 +112,23 @@ def create_app(node: "EsenceNode | None" = None) -> FastAPI:
         await ws_manager.broadcast("approved", {"thread_id": thread_id})
         return JSONResponse({"status": "approved", "thread_id": thread_id})
 
+    @app.post("/api/mood")
+    async def set_mood(request: Request) -> JSONResponse:
+        """Cambia el mood de disponibilidad: available | moderate | absent | dnd"""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        try:
+            body = await request.json()
+            mood = body.get("mood", "")
+        except Exception:
+            raise HTTPException(status_code=400, detail="JSON inválido")
+        try:
+            node.store.set_mood(mood)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        await ws_manager.broadcast("mood_changed", {"mood": mood})
+        return JSONResponse({"status": "ok", "mood": mood})
+
     @app.post("/api/reject/{thread_id}")
     async def reject_message(thread_id: str) -> JSONResponse:
         """Rechaza un mensaje pendiente."""

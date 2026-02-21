@@ -330,6 +330,9 @@ class EsenceNode:
         budget = self.store.read_budget()
         maturity = calculate_maturity(self.store)
 
+        corrections = self.store.read_corrections()
+        patterns = self.store.read_patterns()
+
         return {
             "status": "online" if self._running else "offline",
             "did": self.identity.did if self.identity else config.did(),
@@ -337,6 +340,7 @@ class EsenceNode:
             "domain": config.domain,
             "peer_count": self.peers.peer_count(),
             "pending_count": self.queue.pending_count(),
+            "mood": budget.get("mood", "moderate"),
             "budget": {
                 "used_tokens": budget.get("used_tokens", 0),
                 "monthly_limit_tokens": budget.get("monthly_limit_tokens", 500_000),
@@ -344,6 +348,8 @@ class EsenceNode:
             },
             "maturity": maturity,
             "maturity_label": maturity_label(maturity),
+            "corrections_count": len(corrections),
+            "patterns_count": len(patterns),
         }
 
     async def stop(self) -> None:
