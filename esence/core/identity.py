@@ -90,6 +90,16 @@ class Identity:
     # Persistence
     # ------------------------------------------------------------------
 
+    def update_domain(self, new_domain: str, store_dir: Path | None = None) -> None:
+        """Actualiza el dominio del DID y regenera did.json (mismas keys)."""
+        parts = self.did.split(":")
+        node_name = parts[-1]
+        self.did = f"did:wba:{new_domain}:{node_name}"
+        store_dir = store_dir or config.essence_store_dir
+        (store_dir / "did.json").write_text(json.dumps(self.to_did_document(), indent=2))
+        import logging
+        logging.getLogger(__name__).info(f"DID actualizado: {self.did}")
+
     def save(self, store_dir: Path | None = None) -> None:
         """Guarda keys y did.json en essence-store/."""
         store_dir = store_dir or config.essence_store_dir

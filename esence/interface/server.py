@@ -129,6 +129,33 @@ def create_app(node: "EsenceNode | None" = None) -> FastAPI:
         await ws_manager.broadcast("mood_changed", {"mood": mood})
         return JSONResponse({"status": "ok", "mood": mood})
 
+    @app.post("/api/send")
+    async def send_message_endpoint(request: Request) -> JSONResponse:
+        """Envía un mensaje a otro nodo por DID."""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="JSON inválido")
+        to_did = body.get("to_did")
+        content = body.get("content")
+        if not to_did or not content:
+            raise HTTPException(status_code=400, detail="to_did y content requeridos")
+        from esence.protocol.transport import send_message
+        from esence.protocol.message import EsenceMessage, MessageType, MessageStatus
+        import uuid
+        msg = EsenceMessage(
+            type=MessageType.THREAD_MESSAGE,
+            thread_id=str(uuid.uuid4()),
+            from_did=node.identity.did,
+            to_did=to_did,
+            content=content,
+            status=MessageStatus.SENT,
+        )
+        success = await send_message(msg, node.identity)
+        return JSONResponse({"status": "sent" if success else "failed"})
+
     @app.post("/api/reject/{thread_id}")
     async def reject_message(thread_id: str) -> JSONResponse:
         """Rechaza un mensaje pendiente."""

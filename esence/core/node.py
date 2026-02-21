@@ -66,6 +66,18 @@ class EsenceNode:
         self.identity = Identity.load_or_generate()
         logger.info(f"Identidad: {self.identity.did}")
 
+        # Reconciliar DID con dominio público si PUBLIC_URL está configurado
+        effective = config.effective_domain()
+        stored_parts = self.identity.did.split(":")
+        if len(stored_parts) >= 3:
+            stored_domain = stored_parts[2]
+            # Decodificar puerto URL-encoded (ej: localhost%3A7778 → localhost)
+            stored_host = stored_domain.split("%3A")[0]
+            effective_host = effective.split(":")[0]
+            if stored_host != effective_host:
+                logger.info(f"Dominio público cambió: {stored_host} → {effective_host}")
+                self.identity.update_domain(effective)
+
         # Restaurar mensajes pendientes
         self.queue.restore_pending()
         pending = self.queue.pending_count()

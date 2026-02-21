@@ -29,6 +29,7 @@ class Config:
     donation_pct: int = int(os.getenv("ESENCE_DONATION_PCT", "10"))
     port: int = int(os.getenv("ESENCE_PORT", "7777"))
     bootstrap_peer: str = os.getenv("ESENCE_BOOTSTRAP_PEER", "")
+    public_url: str = os.getenv("ESENCE_PUBLIC_URL", "")  # ej: "https://abc123.ngrok.io"
 
     # Dev
     dev_skip_sig: bool = os.getenv("ESENCE_SKIP_SIG_VERIFY", "").lower() in ("1", "true", "yes")
@@ -38,13 +39,27 @@ class Config:
     essence_store_dir: Path = _ROOT / "essence-store"
 
     @classmethod
+    def effective_domain(cls) -> str:
+        """Dominio público si PUBLIC_URL está seteado, sino domain local."""
+        if cls.public_url:
+            from urllib.parse import urlparse
+            return urlparse(cls.public_url).netloc  # "abc.ngrok.io"
+        return cls.domain
+
+    @classmethod
     def did(cls) -> str:
-        return f"did:wba:{cls.domain}:{cls.node_name}"
+        return f"did:wba:{cls.effective_domain()}:{cls.node_name}"
 
     @classmethod
     def did_document_url(cls) -> str:
-        port_suffix = f":{cls.port}" if cls.domain == "localhost" else ""
-        return f"https://{cls.domain}{port_suffix}/.well-known/did.json"
+        domain = cls.effective_domain()
+        if cls.public_url:
+            return f"{cls.public_url.rstrip('/')}/.well-known/did.json"
+        # localhost: http + puerto explícito
+        is_local = domain.startswith("localhost") or domain.startswith("127.")
+        port_suffix = f":{cls.port}" if is_local else ""
+        scheme = "http" if is_local else "https"
+        return f"{scheme}://{domain}{port_suffix}/.well-known/did.json"
 
     @classmethod
     def validate(cls) -> list[str]:

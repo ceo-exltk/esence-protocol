@@ -82,6 +82,10 @@ def run_setup() -> None:
         "% de capacidad a compartir con la red",
         existing_env.get("ESENCE_DONATION_PCT", "10"),
     )
+    public_url = _prompt(
+        "URL pública (ngrok, VPS) — Enter para saltar",
+        existing_env.get("ESENCE_PUBLIC_URL", ""),
+    )
 
     # Escribir .env
     env_content = f"""# Esence Node Configuration
@@ -94,6 +98,7 @@ ESENCE_NODE_NAME={node_name}
 ESENCE_DOMAIN={domain}
 ESENCE_PORT={port}
 ESENCE_DONATION_PCT={donation_pct}
+ESENCE_PUBLIC_URL={public_url}
 """
     env_path.write_text(env_content)
     print(f"\n  ✓ .env escrito")
