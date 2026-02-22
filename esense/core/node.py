@@ -201,17 +201,13 @@ class EsenseNode:
                 logger.error(f"Error en inbound loop: {e}")
 
     async def _handle_inbound(self, message: dict[str, Any]) -> None:
-        """Procesa un mensaje inbound: genera respuesta propuesta."""
-        from esense.interface.ws import ws_manager
-
+        """Registra mensaje inbound. El LLM corre sólo al aprobar."""
         sender_did = message.get("from_did", "")
-        content = message.get("content", "")
-        thread_id = message.get("thread_id", "")
         msg_type = message.get("type", "")
 
         logger.info(f"Mensaje inbound de {sender_did[:40]}… (tipo: {msg_type})")
 
-        # Manejar PeerIntro — actualizar lista de peers por gossip
+        # Manejar PeerIntro
         if msg_type == MessageType.PEER_INTRO:
             known_peers = message.get("known_peers", [])
             new_count = self.peers.merge_gossip(known_peers, sender_did)
@@ -220,56 +216,64 @@ class EsenseNode:
             self.peers.record_interaction(sender_did, successful=True)
             return
 
-        # Registrar interacción con el peer
         self.peers.record_interaction(sender_did, successful=True)
 
-        # Generar respuesta propuesta con el engine
+        # Auto-approved → generar y enviar directamente sin revisión humana
+        if message.get("status") == MessageStatus.AUTO_APPROVED:
+            asyncio.create_task(self._generate_and_approve(message))
+        # else: PENDING_HUMAN_REVIEW → espera que el usuario apruebe desde la UI
+
+    async def _generate_and_approve(
+        self, message: dict[str, Any], edited_reply: str | None = None
+    ) -> None:
+        """Genera respuesta con LLM (si no hay edited_reply) y la envía."""
+        from esense.interface.ws import ws_manager
+
+        thread_id = message.get("thread_id", "")
+        sender_did = message.get("from_did", "")
+        content = message.get("content", "")
+        was_auto = message.get("status") == MessageStatus.AUTO_APPROVED
+
         try:
-            # Notificar UI que el agente está pensando
             await ws_manager.broadcast("agent_thinking", {"thread_id": thread_id})
 
-            history = self.store.read_thread(thread_id)
-            context_messages = [
-                {
-                    "role": "user" if m.get("from_did") != (self.identity.did if self.identity else "") else "assistant",
-                    "content": m.get("content", ""),
-                }
-                for m in history[-10:]
-                if m.get("content")
-            ]
-            proposed = await self.engine.generate(
-                user_message=content,
-                context_messages=context_messages,
-                max_tokens=512,
-            )
-            # Agregar propuesta al mensaje
-            message["proposed_reply"] = proposed
+            if not edited_reply:
+                # Generar con LLM
+                history = self.store.read_thread(thread_id)
+                context_messages = [
+                    {
+                        "role": "user" if m.get("from_did") != (self.identity.did if self.identity else "") else "assistant",
+                        "content": m.get("content", ""),
+                    }
+                    for m in history[-10:]
+                    if m.get("content")
+                ]
+                llm_reply = await self.engine.generate(
+                    user_message=content,
+                    context_messages=context_messages,
+                    max_tokens=512,
+                )
+                # Guardarlo en el mensaje pendiente para el loop de aprendizaje
+                message["proposed_reply"] = llm_reply
+                approved = await self.queue.approve(thread_id)
+            else:
+                # El usuario escribió su propia respuesta — usar directamente
+                approved = await self.queue.approve(thread_id, edited_reply=edited_reply)
 
-            # Actualizar en el store
-            messages = self.store.read_thread(thread_id)
-            for m in messages:
-                if m.get("thread_id") == thread_id:
-                    m["proposed_reply"] = proposed
-            self.store.write_thread(thread_id, messages)
-
-            # Si el mensaje es auto_approved → aprobar sin revisión humana
-            if message.get("status") == MessageStatus.AUTO_APPROVED:
-                logger.info(f"Auto-aprobando respuesta para {thread_id[:8]}…")
-                await self.queue.approve(thread_id)
-                await ws_manager.broadcast("auto_approved", {
+            if approved:
+                event = "auto_approved" if was_auto else "approved"
+                await ws_manager.broadcast(event, {
                     "thread_id": thread_id,
-                    "proposed_reply": proposed,
+                    "from_did": sender_did,
                 })
             else:
-                # Notificar UI para revisión humana
-                await ws_manager.broadcast("review_ready", {
-                    "thread_id": thread_id,
-                    "proposed_reply": proposed,
-                    "message": message,
-                })
+                logger.warning(f"No se pudo aprobar {thread_id[:8]}: ya procesado")
 
         except Exception as e:
-            logger.error(f"Error generando respuesta propuesta: {e}")
+            logger.error(f"Error en _generate_and_approve ({thread_id[:8]}): {e}")
+            await ws_manager.broadcast("agent_error", {
+                "thread_id": thread_id, "error": str(e),
+            })
 
     async def _process_outbound_loop(self) -> None:
         """Envía mensajes outbound aprobados."""
@@ -414,6 +418,7 @@ class EsenseNode:
             "peer_count": self.peers.peer_count(),
             "pending_count": self.queue.pending_count(),
             "mood": budget.get("mood", "moderate"),
+            "auto_approve": budget.get("auto_approve", False),
             "budget": {
                 "used_tokens": budget.get("used_tokens", 0),
                 "monthly_limit_tokens": budget.get("monthly_limit_tokens", 500_000),

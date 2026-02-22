@@ -339,7 +339,7 @@ class TestTransportSecurity:
 class TestThreadContinuity:
     @pytest.mark.asyncio
     async def test_handle_inbound_passes_context_to_engine(self, tmp_store):
-        """_handle_inbound debe pasar el historial del thread al engine."""
+        """_generate_and_approve debe pasar el historial del thread al engine."""
         from esense.core.node import EsenseNode
 
         node = EsenseNode.__new__(EsenseNode)
@@ -377,14 +377,18 @@ class TestThreadContinuity:
         from esense.core.queue import MessageQueue
         node.queue = MessageQueue(tmp_store)
 
+        message = {
+            "from_did": "did:wba:other.example.com:bob",
+            "content": "Segundo mensaje del hilo",
+            "thread_id": thread_id,
+            "type": "thread_message",
+            "status": "pending_human_review",
+        }
+        # Agregar a _pending para que queue.approve pueda encontrarlo
+        node.queue._pending[thread_id] = message
+
         with patch("esense.interface.ws.ws_manager.broadcast", new_callable=AsyncMock):
-            await node._handle_inbound({
-                "from_did": "did:wba:other.example.com:bob",
-                "content": "Segundo mensaje del hilo",
-                "thread_id": thread_id,
-                "type": "thread_message",
-                "status": "pending_human_review",
-            })
+            await node._generate_and_approve(message)
 
         assert "context_messages" in captured
         assert captured["context_messages"] is not None
@@ -418,13 +422,16 @@ class TestThreadContinuity:
         from esense.core.queue import MessageQueue
         node.queue = MessageQueue(tmp_store)
 
+        message = {
+            "from_did": "did:wba:other.example.com:bob",
+            "content": "Primer mensaje en thread nuevo",
+            "thread_id": "brand-new-thread",
+            "type": "thread_message",
+            "status": "pending_human_review",
+        }
+        node.queue._pending["brand-new-thread"] = message
+
         with patch("esense.interface.ws.ws_manager.broadcast", new_callable=AsyncMock):
-            await node._handle_inbound({
-                "from_did": "did:wba:other.example.com:bob",
-                "content": "Primer mensaje en thread nuevo",
-                "thread_id": "brand-new-thread",
-                "type": "thread_message",
-                "status": "pending_human_review",
-            })
+            await node._generate_and_approve(message)
 
         assert captured["context_messages"] == []

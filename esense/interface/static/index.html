@@ -23,6 +23,12 @@
       <span id="peers-text">0 peers</span>
     </div>
     <div class="header-right">
+      <!-- Auto-approve toggle -->
+      <button class="icon-btn" id="btn-auto-approve" title="Auto-aprobación: desactivada">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+      </button>
       <!-- Notification bell -->
       <button class="icon-btn" id="btn-notif" title="Mensajes pendientes">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -130,37 +136,38 @@
           <div id="review-content" class="review-content"></div>
         </div>
 
-        <!-- Propuesta del agente -->
-        <div id="review-proposal" class="review-block proposal-block hidden">
+        <!-- Respuesta manual (opcional) -->
+        <div id="review-proposal" class="review-block proposal-block">
           <div class="review-block-label-row">
             <div class="review-block-label">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
-              Respuesta del agente
+              Tu respuesta
             </div>
-            <span class="edit-hint">editá para ajustar · se enviará al aprobar</span>
+            <span class="edit-hint">opcional · vacío = responde la IA</span>
           </div>
           <textarea
             id="proposal-edit"
             class="proposal-edit"
-            rows="5"
-            placeholder="La respuesta propuesta aparecerá aquí…"
+            rows="3"
+            placeholder="Escribí tu respuesta, o dejá vacío para que el agente responda…"
           ></textarea>
-          <!-- Diff indicator -->
+          <!-- Manual reply indicator -->
           <div class="diff-indicator hidden" id="diff-indicator">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            Editaste la respuesta — esto es una señal de aprendizaje
+            Respuesta manual — el agente no generará
           </div>
         </div>
 
-        <!-- Loading spinner -->
+        <!-- Loading (visible durante generación + envío) -->
         <div id="review-loading" class="review-loading hidden">
           <span class="spinner"></span>
-          Generando respuesta…
+          <span id="review-loading-text">Generando respuesta…</span>
         </div>
 
         <!-- Acciones -->

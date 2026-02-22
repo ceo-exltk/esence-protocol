@@ -67,15 +67,19 @@ class MessageQueue:
         )
 
         # Routing por mood
-        # dnd → rechazar inmediatamente sin generar respuesta
+        # dnd → rechazar inmediatamente, ignorar auto_approve
         if mood == "dnd":
             message["status"] = MessageStatus.REJECTED
             self.store.append_to_thread(thread_id, message)
             await self._emit("rejected", {"thread_id": thread_id})
             return
 
+        # Auto-approve global (toggle del usuario) — ignora mood/maturity
+        if self.store.get_auto_approve():
+            status = MessageStatus.AUTO_APPROVED
+
         # available → auto-aprobar si trust mínimo
-        if mood == "available" and peer_trust >= 0.3:
+        elif mood == "available" and peer_trust >= 0.3:
             status = MessageStatus.AUTO_APPROVED
 
         # moderate → auto-aprobar con madurez + trust alto
@@ -210,6 +214,10 @@ class MessageQueue:
 
     def qsize_outbound(self) -> int:
         return self._outbound.qsize()
+
+    def get_pending(self, thread_id: str) -> dict[str, Any] | None:
+        """Retorna un mensaje pendiente sin sacarlo de la cola."""
+        return self._pending.get(thread_id)
 
     def pending_count(self) -> int:
         return len(self._pending)

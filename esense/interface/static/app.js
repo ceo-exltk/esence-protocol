@@ -11,15 +11,15 @@
   let ws = null;
   let wsReconnectTimer = null;
   let currentReviewThreadId = null;
-  let originalProposal = "";
   let pendingCount = 0;
   let currentMood = "moderate";
+  let autoApprove = false;
   let nodeState = {};
-  let peerMap = {};         // did → peer object (con display_name, alias)
-  let reviewLoadingTimer = null; // timeout para spinner "generando"
-  const threads = {};       // thread_id → { msg, el: bubble, group: groupEl, direction }
-  let lastGroupKey = null;  // "direction:fromDid" of the last prepended group
-  let lastGroupEl = null;   // DOM element of that group
+  let peerMap = {};                // did → peer object (con display_name, alias)
+  let pendingApprovalState = null; // { wasEdited, recipientDid } — set on approve click
+  const threads = {};              // thread_id → { msg, el: bubble, group: groupEl, direction }
+  let lastGroupKey = null;
+  let lastGroupEl = null;
 
   // ------------------------------------------------------------------
   // DOM refs
@@ -50,6 +50,8 @@
   const btnReviewClose     = $("btn-review-close");
   const learningFeedback   = $("learning-feedback");
   const sendConfirmation   = $("send-confirmation");
+  const reviewLoadingText  = $("review-loading-text");
+  const btnAutoApprove     = $("btn-auto-approve");
   const inputText          = $("input-text");
   const btnSend            = $("btn-send");
   const charCount          = $("char-count");
@@ -74,6 +76,7 @@
       sendWS("get_pending");
       loadPeers();
       loadContext();
+      loadAutoApprove();
     };
 
     ws.onmessage = (e) => {
@@ -112,18 +115,25 @@
         break;
 
       case "review_ready":
-        removeThinkingBubble(data.thread_id);
-        upsertCard(data.message, "inbound");
-        updateReplyBtn(data.thread_id, data.proposed_reply);
-        if (!currentReviewThreadId || currentReviewThreadId === data.thread_id) {
-          showReview({ ...data.message, proposed_reply: data.proposed_reply });
-        }
+        // Ya no se usa (LLM corre post-aprobación), ignorar silenciosamente
         break;
 
       case "auto_approved":
         removeThinkingBubble(data.thread_id);
         updateStatus(data.thread_id, "auto_approved");
         notify("Auto-aprobado · " + shortenDid(data.from_did || ""), "info");
+        break;
+
+      case "auto_approve_changed":
+        setAutoApproveUI(data.enabled);
+        break;
+
+      case "agent_error":
+        removeThinkingBubble(data.thread_id);
+        reviewLoading.classList.add("hidden");
+        btnApprove.disabled = false;
+        btnReject.disabled = false;
+        notify("Error generando respuesta", "error");
         break;
 
       case "agent_reply":
@@ -146,8 +156,21 @@
         break;
 
       case "approved":
+        removeThinkingBubble(data.thread_id);
         updateStatus(data.thread_id, "approved");
-        if (currentReviewThreadId === data.thread_id) hideReview();
+        if (currentReviewThreadId === data.thread_id) {
+          reviewLoading.classList.add("hidden");
+          if (pendingApprovalState) {
+            showLearningFeedback(
+              pendingApprovalState.wasEdited,
+              nodeState.corrections_count || 0,
+              pendingApprovalState.recipientDid,
+            );
+            pendingApprovalState = null;
+          } else {
+            hideReview();
+          }
+        }
         setPending(Math.max(0, pendingCount - 1));
         sendWS("get_pending");
         break;
@@ -234,6 +257,7 @@
       maturityPatterns.textContent = `${state.patterns_count} patrones`;
 
     if (state.mood) setMoodUI(state.mood);
+    if (typeof state.auto_approve === "boolean") setAutoApproveUI(state.auto_approve);
   }
 
   // ------------------------------------------------------------------
@@ -384,9 +408,25 @@
       <div class="msg-group-header">
         <div class="msg-avatar ${avCls}">${esc(ini)}</div>
         <span class="msg-from ${fromCls}" title="${esc(fromDid)}">${esc(label)}</span>
+        <span class="msg-group-count hidden"></span>
+        <button class="msg-collapse-btn" title="Colapsar">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="18 15 12 9 6 15"/>
+          </svg>
+        </button>
       </div>
       <div class="msg-group-body"></div>
     `;
+
+    el.querySelector(".msg-collapse-btn").addEventListener("click", () => {
+      const collapsed = el.classList.toggle("collapsed");
+      const body = el.querySelector(".msg-group-body");
+      const countEl = el.querySelector(".msg-group-count");
+      const n = body.querySelectorAll(".msg-bubble").length;
+      countEl.textContent = `${n} msg${n !== 1 ? "s" : ""}`;
+      countEl.classList.toggle("hidden", !collapsed);
+    });
+
     return el;
   }
 
@@ -475,7 +515,7 @@
 
   function showReview(msg) {
     currentReviewThreadId = msg.thread_id;
-    originalProposal = msg.proposed_reply || "";
+    pendingApprovalState = null;
 
     reviewFrom.textContent = shortenDid(msg.from_did || "desconocido");
     reviewFrom.title = msg.from_did || "";
@@ -483,37 +523,17 @@
 
     learningFeedback.classList.add("hidden");
     learningFeedback.innerHTML = "";
+    sendConfirmation.classList.add("hidden");
+    sendConfirmation.innerHTML = "";
     btnApprove.disabled = false;
     btnReject.disabled = false;
     diffIndicator.classList.add("hidden");
 
-    sendConfirmation.classList.add("hidden");
-    sendConfirmation.innerHTML = "";
-
-    if (msg.proposed_reply) {
-      proposalEdit.value = msg.proposed_reply;
-      proposalEdit.classList.remove("edited");
-      reviewLoading.classList.add("hidden");
-      reviewProposal.classList.remove("hidden");
-    } else {
-      reviewProposal.classList.add("hidden");
-      reviewLoading.classList.remove("hidden");
-      // Timeout de 15s si la propuesta no llega
-      clearTimeout(reviewLoadingTimer);
-      reviewLoadingTimer = setTimeout(() => {
-        if (reviewLoading.classList.contains("hidden")) return;
-        reviewLoading.innerHTML = `
-          <span style="color:var(--text-muted)">El agente tardó demasiado en responder.</span>
-          <button class="btn btn-sm" id="btn-manual-reply">Escribir respuesta manual</button>
-        `;
-        document.getElementById("btn-manual-reply")?.addEventListener("click", () => {
-          reviewLoading.classList.add("hidden");
-          proposalEdit.value = "";
-          reviewProposal.classList.remove("hidden");
-          proposalEdit.focus();
-        });
-      }, 15000);
-    }
+    // Textarea vacía para respuesta opcional del usuario
+    proposalEdit.value = "";
+    proposalEdit.classList.remove("edited");
+    reviewLoading.classList.add("hidden");
+    reviewProposal.classList.remove("hidden");
 
     reviewCard.classList.remove("hidden");
   }
@@ -525,9 +545,9 @@
   }
 
   proposalEdit.addEventListener("input", () => {
-    const edited = proposalEdit.value !== originalProposal && proposalEdit.value.trim() !== "";
-    proposalEdit.classList.toggle("edited", edited);
-    diffIndicator.classList.toggle("hidden", !edited);
+    const hasContent = proposalEdit.value.trim() !== "";
+    proposalEdit.classList.toggle("edited", hasContent);
+    diffIndicator.classList.toggle("hidden", !hasContent);
   });
 
   // ------------------------------------------------------------------
@@ -536,15 +556,21 @@
 
   btnApprove.addEventListener("click", () => {
     if (!currentReviewThreadId) return;
-    const edited    = proposalEdit.value.trim();
-    const wasEdited = edited !== originalProposal && edited !== "";
-    const editedReply = edited || null;
-
+    const manualReply = proposalEdit.value.trim() || null;
+    const wasEdited   = !!manualReply;
     const recipientDid = threads[currentReviewThreadId]?.msg?.from_did || "";
-    sendWS("approve", { thread_id: currentReviewThreadId, edited_reply: editedReply });
+
+    // Guardar estado para cuando llegue el "approved" del servidor
+    pendingApprovalState = { wasEdited, recipientDid };
+
+    // Mostrar estado de procesamiento
+    if (reviewLoadingText) reviewLoadingText.textContent = wasEdited ? "Enviando…" : "Generando respuesta…";
+    reviewLoading.classList.remove("hidden");
+    reviewProposal.classList.add("hidden");
     btnApprove.disabled = true;
     btnReject.disabled = true;
-    showLearningFeedback(wasEdited, nodeState.corrections_count || 0, recipientDid);
+
+    sendWS("approve", { thread_id: currentReviewThreadId, edited_reply: manualReply });
   });
 
   btnReject.addEventListener("click", () => {
@@ -705,6 +731,46 @@
 
   document.getElementById('new-peer-did').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') document.getElementById('btn-add-peer').click();
+  });
+
+  // ------------------------------------------------------------------
+  // Auto-approve toggle
+  // ------------------------------------------------------------------
+
+  async function loadAutoApprove() {
+    try {
+      const resp = await fetch("/api/auto-approve");
+      if (resp.ok) {
+        const data = await resp.json();
+        setAutoApproveUI(data.auto_approve);
+      }
+    } catch (err) {
+      console.error("loadAutoApprove:", err);
+    }
+  }
+
+  function setAutoApproveUI(enabled) {
+    autoApprove = enabled;
+    if (!btnAutoApprove) return;
+    btnAutoApprove.classList.toggle("active", enabled);
+    btnAutoApprove.title = enabled
+      ? "Auto-aprobación: activada — click para desactivar"
+      : "Auto-aprobación: desactivada — click para activar";
+  }
+
+  btnAutoApprove?.addEventListener("click", async () => {
+    const newVal = !autoApprove;
+    try {
+      await fetch("/api/auto-approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: newVal }),
+      });
+      setAutoApproveUI(newVal);
+      notify(newVal ? "Auto-aprobación activada ⚡" : "Auto-aprobación desactivada", newVal ? "success" : "info");
+    } catch (err) {
+      notify("Error cambiando auto-aprobación", "error");
+    }
   });
 
   // ------------------------------------------------------------------

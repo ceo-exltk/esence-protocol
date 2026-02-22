@@ -290,7 +290,7 @@ class TestGetRecentThreads:
 class TestTypingIndicator:
     @pytest.mark.asyncio
     async def test_handle_inbound_broadcasts_agent_thinking(self, tmp_path):
-        """_handle_inbound debe emitir agent_thinking antes de llamar engine.generate."""
+        """_generate_and_approve debe emitir agent_thinking antes de llamar engine.generate."""
         from esense.core.node import EsenseNode
 
         node = EsenseNode.__new__(EsenseNode)
@@ -308,7 +308,7 @@ class TestTypingIndicator:
         node.engine = engine
 
         queue = MagicMock()
-        queue.approve = AsyncMock()
+        queue.approve = AsyncMock(return_value={"thread_id": "test-thread-123"})
         node.queue = queue
 
         peers = MagicMock()
@@ -329,10 +329,10 @@ class TestTypingIndicator:
                 "type": "thread_message",
                 "status": "pending_human_review",
             }
-            await EsenseNode._handle_inbound(node, message)
+            await EsenseNode._generate_and_approve(node, message)
 
         # Verificar que agent_thinking fue el primer broadcast
-        assert len(broadcast_calls) >= 2
+        assert len(broadcast_calls) >= 1
         assert broadcast_calls[0][0] == "agent_thinking"
         assert broadcast_calls[0][1]["thread_id"] == "test-thread-123"
 
@@ -341,7 +341,7 @@ class TestTypingIndicator:
 
     @pytest.mark.asyncio
     async def test_agent_thinking_emitted_before_generate(self, tmp_path):
-        """agent_thinking debe aparecer antes del broadcast de review_ready."""
+        """agent_thinking debe aparecer antes de que engine.generate corra."""
         from esense.core.node import EsenseNode
 
         node = EsenseNode.__new__(EsenseNode)
@@ -359,7 +359,7 @@ class TestTypingIndicator:
         node.engine = engine
 
         queue = MagicMock()
-        queue.approve = AsyncMock()
+        queue.approve = AsyncMock(return_value={"thread_id": "order-test"})
         node.queue = queue
 
         peers = MagicMock()
@@ -386,7 +386,7 @@ class TestTypingIndicator:
                 "type": "thread_message",
                 "status": "pending_human_review",
             }
-            await EsenseNode._handle_inbound(node, message)
+            await EsenseNode._generate_and_approve(node, message)
 
         # agent_thinking debe preceder a generate_called
         thinking_idx = call_order.index("agent_thinking")

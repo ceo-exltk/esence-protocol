@@ -300,6 +300,27 @@ def create_app(node: "EsenseNode | None" = None) -> FastAPI:
         patterns = node.store.read_patterns()
         return JSONResponse(patterns)
 
+    @app.get("/api/auto-approve")
+    async def get_auto_approve() -> JSONResponse:
+        """Estado actual del toggle de auto-aprobación."""
+        if not node:
+            return JSONResponse({"auto_approve": False})
+        return JSONResponse({"auto_approve": node.store.get_auto_approve()})
+
+    @app.post("/api/auto-approve")
+    async def set_auto_approve(request: Request) -> JSONResponse:
+        """Activa o desactiva la auto-aprobación."""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        try:
+            body = await request.json()
+            enabled = bool(body.get("enabled", False))
+        except Exception:
+            raise HTTPException(status_code=400, detail="JSON inválido")
+        node.store.set_auto_approve(enabled)
+        await ws_manager.broadcast("auto_approve_changed", {"enabled": enabled})
+        return JSONResponse({"status": "ok", "auto_approve": enabled})
+
     @app.post("/api/reject/{thread_id}")
     async def reject_message(thread_id: str) -> JSONResponse:
         """Rechaza un mensaje pendiente."""

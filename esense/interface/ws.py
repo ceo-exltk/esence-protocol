@@ -100,13 +100,17 @@ class WSManager:
                 })
 
         elif msg_type == "approve":
-            # Aprueba un mensaje pendiente (opcionalmente con reply editada)
+            # El usuario aprueba: AHORA corre el LLM y envía
             thread_id = msg.get("thread_id")
-            edited_reply = msg.get("edited_reply")  # None si no hay edición
+            edited_reply = msg.get("edited_reply") or None
             if thread_id:
-                approved = await self._node.queue.approve(thread_id, edited_reply=edited_reply)
-                if approved:
-                    await self._send_to(ws, "approved", {"thread_id": thread_id})
+                message = self._node.queue.get_pending(thread_id)
+                if message:
+                    asyncio.create_task(
+                        self._node._generate_and_approve(message, edited_reply=edited_reply)
+                    )
+                else:
+                    await self._send_to(ws, "error", {"message": f"Mensaje {thread_id} no encontrado"})
 
         elif msg_type == "reject":
             # Rechaza un mensaje pendiente

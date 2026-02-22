@@ -197,6 +197,16 @@ class EssenceStore:
         budget["mood"] = mood
         self.write_budget(budget)
 
+    def get_auto_approve(self) -> bool:
+        """Retorna si auto-aprobación está activada."""
+        return bool(self.read_budget().get("auto_approve", False))
+
+    def set_auto_approve(self, enabled: bool) -> None:
+        """Activa o desactiva la auto-aprobación."""
+        budget = self.read_budget()
+        budget["auto_approve"] = enabled
+        self.write_budget(budget)
+
     def is_over_budget(self) -> bool:
         budget = self.read_budget()
         budget = self._maybe_reset_budget(budget)
