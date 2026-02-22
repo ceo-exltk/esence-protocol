@@ -416,6 +416,50 @@ def create_app(node: "EsenseNode | None" = None) -> FastAPI:
         return JSONResponse({"score": score, "label": maturity_label(score)})
 
     # ------------------------------------------------------------------
+    # Perfil público
+    # ------------------------------------------------------------------
+
+    @app.get("/@{name}", response_class=HTMLResponse)
+    async def public_profile(name: str, request: Request) -> HTMLResponse:
+        """Página pública del nodo — shareable como invite link."""
+        if not node:
+            return HTMLResponse(_profile_html_offline(name), status_code=503)
+
+        state = node.get_state()
+        did = state.get("did", config.did())
+        node_name = state.get("node_name", name)
+        mood = state.get("mood", "moderate")
+        maturity_pct = round(state.get("maturity", 0) * 100)
+        maturity_lbl = state.get("maturity_label", "nascent")
+        corrections = state.get("corrections_count", 0)
+        answered = corrections  # proxy: cada corrección = respuesta enviada
+
+        # Primera línea del context.md como bio
+        context_raw = node.store.read_context() if node else ""
+        bio = ""
+        for line in context_raw.splitlines():
+            line = line.strip().lstrip("#").strip()
+            if line and not line.startswith("##"):
+                bio = line[:160]
+                break
+
+        base_url = str(request.base_url).rstrip("/")
+        # Si hay ngrok, usar la URL pública
+        if config.public_url:
+            base_url = config.public_url.rstrip("/")
+
+        return HTMLResponse(_profile_html(
+            name=node_name,
+            did=did,
+            mood=mood,
+            bio=bio,
+            maturity_pct=maturity_pct,
+            maturity_lbl=maturity_lbl,
+            answered=answered,
+            base_url=base_url,
+        ))
+
+    # ------------------------------------------------------------------
     # WebSocket
     # ------------------------------------------------------------------
 
@@ -438,3 +482,176 @@ def create_app(node: "EsenseNode | None" = None) -> FastAPI:
         return FileResponse(str(index), headers={"Cache-Control": "no-cache"})
 
     return app
+
+
+# ---------------------------------------------------------------------------
+# Profile page HTML generator
+# ---------------------------------------------------------------------------
+
+_MOOD_LABEL = {
+    "available": ("●", "Disponible", "#00e676"),
+    "moderate":  ("◑", "Moderado",   "#ffb300"),
+    "absent":    ("○", "Ausente",    "#686868"),
+    "dnd":       ("⊗", "No molestar","#ff5252"),
+}
+
+
+def _html_escape(s: str) -> str:
+    return (str(s)
+            .replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def _profile_html(
+    name: str,
+    did: str,
+    mood: str,
+    bio: str,
+    maturity_pct: int,
+    maturity_lbl: str,
+    answered: int,
+    base_url: str,
+) -> str:
+    mood_icon, mood_text, mood_color = _MOOD_LABEL.get(mood, ("●", mood, "#686868"))
+    name_e  = _html_escape(name)
+    did_e   = _html_escape(did)
+    bio_e   = _html_escape(bio) if bio else "Agente Esense — representación digital de una persona real."
+    lbl_e   = _html_escape(maturity_lbl)
+    base_e  = _html_escape(base_url)
+    anp_url = _html_escape(f"{base_url}/anp/message")
+
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>@{name_e} · esense</title>
+  <meta property="og:title" content="@{name_e} en Esense">
+  <meta property="og:description" content="{bio_e}">
+  <style>
+    :root {{
+      --bg:#0d0d0d; --surface:#141414; --border:#272727;
+      --text:#e8e8e8; --muted:#686868; --dim:#383838;
+      --accent:#7c6af7; --green:#00e676; --font-mono:"SF Mono","Fira Code",monospace;
+    }}
+    *{{box-sizing:border-box;margin:0;padding:0}}
+    body{{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}}
+    .card{{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:36px 40px;width:100%;max-width:480px;display:flex;flex-direction:column;gap:24px}}
+    .logo{{font-family:var(--font-mono);font-size:12px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}}
+    .profile-header{{display:flex;align-items:center;gap:16px}}
+    .avatar{{width:56px;height:56px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:22px;font-weight:700;color:#fff;flex-shrink:0;border:2px solid var(--accent)}}
+    .profile-info{{flex:1;min-width:0}}
+    .profile-name{{font-size:20px;font-weight:700;color:var(--text)}}
+    .profile-did{{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+    .mood-badge{{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:3px 9px;border-radius:20px;border:1px solid var(--border);color:{mood_color};background:var(--bg);font-family:var(--font-mono);margin-top:6px}}
+    .bio{{font-size:14px;color:var(--muted);line-height:1.6;border-left:2px solid var(--dim);padding-left:14px}}
+    .stats{{display:flex;gap:24px}}
+    .stat{{display:flex;flex-direction:column;gap:2px}}
+    .stat-value{{font-family:var(--font-mono);font-size:18px;font-weight:700;color:var(--green)}}
+    .stat-label{{font-size:11px;color:var(--muted)}}
+    .maturity-wrap{{display:flex;flex-direction:column;gap:6px}}
+    .maturity-row{{display:flex;justify-content:space-between;align-items:center}}
+    .maturity-label{{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}}
+    .maturity-val{{font-family:var(--font-mono);font-size:11px;color:var(--green)}}
+    .bar{{height:4px;background:var(--dim);border-radius:2px;overflow:hidden}}
+    .bar-fill{{height:100%;background:linear-gradient(90deg,#1b4332,var(--green));border-radius:2px}}
+    .send-section{{display:flex;flex-direction:column;gap:10px}}
+    .send-section h3{{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}}
+    .did-copy{{display:flex;gap:8px;align-items:center}}
+    .did-input{{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-mono);font-size:11px;padding:8px 10px;outline:none}}
+    .btn-copy{{background:var(--accent);border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:12px;font-weight:600;padding:8px 14px;white-space:nowrap;transition:opacity .15s}}
+    .btn-copy:hover{{opacity:.85}}
+    .divider{{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:11px}}
+    .divider::before,.divider::after{{content:"";flex:1;height:1px;background:var(--border)}}
+    .setup-hint{{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;font-size:12px;color:var(--muted);line-height:1.6}}
+    .setup-hint code{{font-family:var(--font-mono);font-size:11px;color:var(--green);background:#0f2a1a;padding:2px 6px;border-radius:3px}}
+    .footer{{font-size:11px;color:var(--dim);text-align:center}}
+    .footer a{{color:var(--muted);text-decoration:none}}
+    .footer a:hover{{color:var(--text)}}
+    #copied{{display:none;font-size:11px;color:var(--green);font-family:var(--font-mono)}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">esense protocol</div>
+
+    <div class="profile-header">
+      <div class="avatar">{name_e[0].upper()}</div>
+      <div class="profile-info">
+        <div class="profile-name">@{name_e}</div>
+        <div class="profile-did" title="{did_e}">{did_e}</div>
+        <div class="mood-badge">{mood_icon} {mood_text}</div>
+      </div>
+    </div>
+
+    <p class="bio">{bio_e}</p>
+
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-value">{answered}</span>
+        <span class="stat-label">respuestas enviadas</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">{maturity_pct}%</span>
+        <span class="stat-label">esencia · {lbl_e}</span>
+      </div>
+    </div>
+
+    <div class="maturity-wrap">
+      <div class="maturity-row">
+        <span class="maturity-label">Essence maturity</span>
+        <span class="maturity-val">{lbl_e}</span>
+      </div>
+      <div class="bar"><div class="bar-fill" style="width:{maturity_pct}%"></div></div>
+    </div>
+
+    <div class="send-section">
+      <h3>Enviarle un mensaje</h3>
+      <div class="did-copy">
+        <input class="did-input" id="did-val" value="{did_e}" readonly>
+        <button class="btn-copy" onclick="copyDid()">Copiar DID</button>
+      </div>
+      <span id="copied">¡Copiado!</span>
+      <div class="divider">tenés un nodo Esense</div>
+      <p style="font-size:12px;color:var(--muted);line-height:1.6">
+        Pegá el DID en el panel <strong>Enviar mensaje</strong> de tu nodo y escribí tu mensaje.
+        Será revisado por <strong>@{name_e}</strong> antes de ser respondido.
+      </p>
+      <div class="divider">no tenés nodo</div>
+      <div class="setup-hint">
+        Para enviar un mensaje necesitás tu propio nodo Esense.<br><br>
+        <strong>Instalar en 60 segundos:</strong><br>
+        <code>git clone https://github.com/tu-repo/esense</code><br>
+        <code>./setup.sh &amp;&amp; ./start.sh</code><br><br>
+        O escribile directamente a <strong>@{name_e}</strong> en otra plataforma con tu DID.
+      </div>
+    </div>
+
+    <div class="footer">
+      Agente autónomo en la red <a href="https://esense.app">Esense Protocol</a> · v0.2
+    </div>
+  </div>
+
+  <script>
+    function copyDid() {{
+      const val = document.getElementById('did-val').value;
+      navigator.clipboard.writeText(val).then(() => {{
+        const el = document.getElementById('copied');
+        el.style.display = 'block';
+        setTimeout(() => {{ el.style.display = 'none'; }}, 2000);
+      }});
+    }}
+  </script>
+</body>
+</html>"""
+
+
+def _profile_html_offline(name: str) -> str:
+    name_e = _html_escape(name)
+    return f"""<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><title>@{name_e} · esense</title>
+<style>body{{background:#0d0d0d;color:#686868;font-family:monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center}}</style>
+</head>
+<body><p>@{name_e} está temporalmente offline.<br>Intentá de nuevo en unos minutos.</p></body>
+</html>"""

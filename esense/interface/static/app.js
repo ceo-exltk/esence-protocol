@@ -31,7 +31,7 @@
   const statusText         = $("status-text");
   const budgetText         = $("budget-text");
   const peersText          = $("peers-text");
-  const didText            = $("did-text");
+  const profileLink        = $("profile-link");
   const avatarInitials     = $("avatar-initials");
   const moodDot            = $("mood-dot");
   const notifBadge         = $("notif-badge");
@@ -249,11 +249,11 @@
     nodeState = state;
 
     if (state.did) {
-      // Mostrar solo @node_name en el header, DID completo en tooltip
       const parts = state.did.split(":");
       const nodeName = parts[parts.length - 1] || "node";
-      didText.textContent = `@${nodeName}`;
-      didText.title = state.did;
+      profileLink.textContent = `@${nodeName}`;
+      profileLink.title = `Ver perfil público · ${state.did}`;
+      profileLink.href = `/@${nodeName}`;
       const name = state.node_name || nodeName || "N";
       avatarInitials.textContent = name[0].toUpperCase();
     }
