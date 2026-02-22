@@ -292,8 +292,9 @@ main {
   font-size: 11px; font-family: var(--font-ui); padding: 4px 10px;
   display: flex; align-items: center; gap: 4px; transition: all 0.15s; white-space: nowrap;
 }
-.msg-action-btn:hover           { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
-.msg-action-btn.pending-action  { background: var(--amber-dim); border-color: #4a3200; color: var(--amber); }
+.msg-action-btn:hover            { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.msg-action-btn.pending-action   { background: var(--amber-dim); border-color: #4a3200; color: var(--amber); }
+.msg-action-btn.delete-btn:hover { background: var(--red-dim); border-color: var(--red); color: var(--red); }
 
 /* ============================================================
    Sidebar
@@ -554,6 +555,18 @@ textarea::placeholder { color: var(--text-dim); }
   flex-shrink: 0; transition: color 0.15s;
 }
 .peer-remove-btn:hover { color: var(--red); }
+
+.peer-block-btn {
+  background: none; border: none; color: var(--text-dim); cursor: pointer;
+  padding: 2px 4px; border-radius: 3px; flex-shrink: 0;
+  display: flex; align-items: center; transition: color 0.15s;
+}
+.peer-block-btn:hover       { color: var(--amber); }
+.peer-block-btn.blocked     { color: var(--red); }
+.peer-block-btn.blocked:hover { color: var(--green); }
+
+.peer-item.peer-blocked { opacity: 0.5; }
+.peer-item.peer-blocked .peer-did { text-decoration: line-through; color: var(--text-dim); }
 
 .peer-add-row { display: flex; gap: 6px; align-items: center; }
 #new-peer-did {

@@ -388,6 +388,36 @@
         notify(`Respondiendo a ${shortenDid(fromDid)}`, "info");
       });
     }
+
+    // Wire up delete button
+    const deleteBtn = bubble.querySelector(".delete-btn");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", async () => {
+        const threadId = deleteBtn.dataset.tid;
+        try {
+          await fetch(`/api/threads/${encodeURIComponent(threadId)}`, { method: "DELETE" });
+        } catch (_) { /* si el thread ya no existe, igual borramos de la UI */ }
+        // Eliminar burbuja del DOM
+        const t = threads[threadId];
+        if (t) {
+          const groupBody = t.group.querySelector(".msg-group-body");
+          t.el.remove();
+          delete threads[threadId];
+          // Si el grupo quedó vacío, quitarlo también
+          if (!groupBody.querySelector(".msg-bubble")) {
+            t.group.remove();
+            if (lastGroupEl === t.group) { lastGroupKey = null; lastGroupEl = null; }
+          }
+        }
+        // Si el feed quedó vacío, mostrar el empty state
+        if (!messagesEl.querySelector(".msg-bubble")) {
+          feedEmpty.style.display = "";
+          messagesEl.style.display = "none";
+        }
+        // Si era el mensaje en review, cerrar el card
+        if (currentReviewThreadId === threadId) hideReview();
+      });
+    }
   }
 
   function buildGroupEl(msg, direction) {
@@ -447,8 +477,8 @@
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <span class="msg-status ${msg.status || ""}">${statusLabel(msg.status)}</span>
-          ${direction === "inbound" ? `
           <div class="msg-actions">
+            ${direction === "inbound" ? `
             <button class="msg-action-btn reply-btn ${isPending ? "pending-action" : ""}"
                     data-tid="${esc(tid)}"
                     data-proposed="${esc(msg.proposed_reply || "")}">
@@ -465,8 +495,18 @@
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
               </svg>
               Responder
+            </button>` : ""}
+            <button class="msg-action-btn delete-btn"
+                    data-tid="${esc(tid)}"
+                    title="Eliminar mensaje">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                <path d="M10 11v6"/><path d="M14 11v6"/>
+                <path d="M9 6V4h6v2"/>
+              </svg>
             </button>
-          </div>` : ""}
+          </div>
         </div>
       </div>
     `;
@@ -670,6 +710,8 @@
         const alias = peer.alias || '';
         const li = document.createElement('li');
         li.className = 'peer-item';
+        const isBlocked = !!peer.blocked;
+        li.className = `peer-item${isBlocked ? " peer-blocked" : ""}`;
         li.innerHTML = `
           <div class="peer-info">
             <div class="peer-name-row">
@@ -681,6 +723,13 @@
             </div>
             <span class="peer-trust">${pct}%</span>
           </div>
+          <button class="peer-block-btn ${isBlocked ? "blocked" : ""}" data-did="${esc(peer.did || '')}" title="${isBlocked ? "Desbloquear peer" : "Bloquear peer"}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              ${isBlocked
+                ? '<circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>'
+                : '<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>'}
+            </svg>
+          </button>
           <button class="peer-remove-btn" data-did="${esc(peer.did || '')}" title="Eliminar peer">×</button>
         `;
         // Guardar alias al hacer blur o Enter
@@ -697,6 +746,18 @@
         };
         aliasInput.addEventListener('blur', saveAlias);
         aliasInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveAlias(); } });
+
+        li.querySelector('.peer-block-btn').addEventListener('click', async () => {
+          const did = li.querySelector('.peer-block-btn').dataset.did;
+          const nowBlocked = !li.querySelector('.peer-block-btn').classList.contains('blocked');
+          await fetch(`/api/peers/${encodeURIComponent(did)}/block`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ blocked: nowBlocked }),
+          });
+          loadPeers();
+          notify(nowBlocked ? `${shortenDid(did)} bloqueado` : `${shortenDid(did)} desbloqueado`, nowBlocked ? 'warning' : 'info');
+        });
 
         li.querySelector('.peer-remove-btn').addEventListener('click', async () => {
           const did = li.querySelector('.peer-remove-btn').dataset.did;

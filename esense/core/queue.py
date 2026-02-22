@@ -61,10 +61,15 @@ class MessageQueue:
 
         # Trust del remitente
         peers = self.store.read_peers()
-        peer_trust = next(
-            (p.get("trust_score", 0.0) for p in peers if p.get("did") == from_did),
-            0.0,
-        )
+        sender_peer = next((p for p in peers if p.get("did") == from_did), None)
+        peer_trust = sender_peer.get("trust_score", 0.0) if sender_peer else 0.0
+
+        # Peer bloqueado → rechazar siempre, sin importar mood
+        if sender_peer and sender_peer.get("blocked"):
+            message["status"] = MessageStatus.REJECTED
+            self.store.append_to_thread(thread_id, message)
+            await self._emit("rejected", {"thread_id": thread_id})
+            return
 
         # Routing por mood
         # dnd → rechazar inmediatamente, ignorar auto_approve

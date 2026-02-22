@@ -240,3 +240,11 @@ class EssenceStore:
         if not threads_dir.exists():
             return []
         return [p.stem for p in threads_dir.glob("*.json")]
+
+    def delete_thread(self, thread_id: str) -> bool:
+        """Elimina un thread. Retorna True si existía."""
+        path = self.thread_path(thread_id)
+        if path.exists():
+            path.unlink()
+            return True
+        return False

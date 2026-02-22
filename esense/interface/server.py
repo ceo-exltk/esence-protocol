@@ -223,6 +223,34 @@ def create_app(node: "EsenseNode | None" = None) -> FastAPI:
         node.peers.remove(decoded_did)
         return JSONResponse({"status": "ok", "did": decoded_did})
 
+    @app.post("/api/peers/{did:path}/block")
+    async def block_peer(did: str, request: Request) -> JSONResponse:
+        """Bloquea o desbloquea un peer."""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        decoded_did = urllib.parse.unquote(did)
+        try:
+            body = await request.json()
+            blocked = bool(body.get("blocked", True))
+        except Exception:
+            blocked = True
+        peer = node.peers.add_or_update(decoded_did, blocked=blocked)
+        peer["display_name"] = node.peers.get_peer_display_name(decoded_did)
+        await ws_manager.broadcast("peer_blocked", {"did": decoded_did, "blocked": blocked})
+        return JSONResponse({"status": "ok", "peer": peer})
+
+    @app.delete("/api/threads/{thread_id}")
+    async def delete_thread(thread_id: str) -> JSONResponse:
+        """Elimina un thread del essence-store."""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        # Sacar de la cola de pendientes si estuviera
+        node.queue._pending.pop(thread_id, None)
+        deleted = node.store.delete_thread(thread_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Thread no encontrado")
+        return JSONResponse({"status": "ok", "thread_id": thread_id})
+
     @app.get("/api/health")
     async def health() -> JSONResponse:
         """Estado de salud del nodo."""
