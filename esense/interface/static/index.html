@@ -103,6 +103,31 @@
     <!-- Sidebar derecho -->
     <aside id="sidebar">
 
+      <!-- Thread detail panel (slides over sidebar) -->
+      <div id="thread-panel" class="thread-panel hidden">
+        <div class="thread-panel-header">
+          <button class="icon-btn" id="btn-thread-close" title="Volver">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <div class="thread-panel-info">
+            <span id="thread-panel-name" class="thread-panel-name"></span>
+            <span id="thread-panel-did" class="thread-panel-did"></span>
+          </div>
+        </div>
+        <div id="thread-messages" class="thread-messages"></div>
+        <div class="thread-reply-box">
+          <textarea id="thread-reply-text" rows="2" placeholder="Responder…" maxlength="2000"></textarea>
+          <button id="btn-thread-reply" class="btn btn-send">
+            Enviar
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
       <!-- Review card -->
       <div id="review-card" class="review-card hidden">
         <div class="review-header">

@@ -19,9 +19,9 @@
   let pendingApprovalState = null; // { wasEdited, recipientDid } — set on approve click
   let obStep = 0;                  // onboarding current step index
   const obAnswers = {};            // { identity, style, topics, requests, limits, notes }
-  const threads = {};              // thread_id → { msg, el: bubble, group: groupEl, direction }
-  let lastGroupKey = null;
-  let lastGroupEl = null;
+  const threads = {};              // thread_id → { msg, el: bubble, group: groupEl, direction, peerDid }
+  const nodeGroups = {};           // peerDid → { el, tids: [], did, direction }
+  let currentThreadPeer = null;    // DID of peer whose thread panel is open
 
   // ------------------------------------------------------------------
   // DOM refs
@@ -61,6 +61,13 @@
   const maturityScore      = $("maturity-score");
   const maturityCorrections = $("maturity-corrections");
   const maturityPatterns   = $("maturity-patterns");
+  const threadPanel        = $("thread-panel");
+  const threadMessages     = $("thread-messages");
+  const threadPanelName    = $("thread-panel-name");
+  const threadPanelDid     = $("thread-panel-did");
+  const threadReplyText    = $("thread-reply-text");
+  const btnThreadClose     = $("btn-thread-close");
+  const btnThreadReply     = $("btn-thread-reply");
 
   // ------------------------------------------------------------------
   // WebSocket
@@ -334,10 +341,6 @@
     messagesEl.style.display = "block";
   }
 
-  function groupKey(direction, fromDid) {
-    return `${direction}:${fromDid}`;
-  }
-
   function upsertCard(msg, direction) {
     if (!msg) return;
     const tid = msg.thread_id || ("anon-" + Date.now());
@@ -351,26 +354,33 @@
     }
 
     const fromDid = msg.from_did || "unknown";
-    const key = groupKey(direction, fromDid);
+    // Peer key: for inbound = sender, for outbound = recipient, for self-chat = "self"
+    const peerDid = direction === "inbound" ? fromDid
+                  : direction === "outbound" ? (msg.to_did || fromDid)
+                  : "self";
 
-    let bubble, groupEl;
-
-    if (lastGroupKey === key && lastGroupEl) {
-      // Same sender as the last message — append bubble to existing group
-      groupEl = lastGroupEl;
-      bubble = buildBubble(msg, direction, tid);
-      groupEl.querySelector(".msg-group-body").appendChild(bubble);
+    let groupEl;
+    if (nodeGroups[peerDid]) {
+      groupEl = nodeGroups[peerDid].el;
+      nodeGroups[peerDid].tids.push(tid);
+      messagesEl.prepend(groupEl); // move to top (most recent)
     } else {
-      // New sender or first message — create new group
-      groupEl = buildGroupEl(msg, direction);
-      bubble = buildBubble(msg, direction, tid);
-      groupEl.querySelector(".msg-group-body").appendChild(bubble);
+      groupEl = buildGroupEl(msg, direction, peerDid);
+      nodeGroups[peerDid] = { el: groupEl, did: peerDid, tids: [tid], direction };
       messagesEl.prepend(groupEl);
-      lastGroupKey = key;
-      lastGroupEl = groupEl;
     }
 
-    threads[tid] = { msg, el: bubble, group: groupEl, direction };
+    const bubble = buildBubble(msg, direction, tid);
+    groupEl.querySelector(".msg-group-body").appendChild(bubble);
+
+    // Update group count + time in header
+    const ng = nodeGroups[peerDid];
+    const countEl = groupEl.querySelector(".msg-group-count");
+    if (countEl) { countEl.textContent = ng.tids.length; countEl.classList.remove("hidden"); }
+    const timeEl = groupEl.querySelector(".msg-group-last-time");
+    if (timeEl && msg.timestamp) timeEl.textContent = fmtTime(msg.timestamp);
+
+    threads[tid] = { msg, el: bubble, group: groupEl, direction, peerDid };
 
     // Wire up review button (ver propuesta del agente)
     const replyBtn = bubble.querySelector(".reply-btn");
@@ -410,11 +420,18 @@
         if (t) {
           const groupBody = t.group.querySelector(".msg-group-body");
           t.el.remove();
+          // Remove tid from nodeGroups
+          const ng = nodeGroups[t.peerDid];
+          if (ng) ng.tids = ng.tids.filter((x) => x !== threadId);
           delete threads[threadId];
           // Si el grupo quedó vacío, quitarlo también
           if (!groupBody.querySelector(".msg-bubble")) {
             t.group.remove();
-            if (lastGroupEl === t.group) { lastGroupKey = null; lastGroupEl = null; }
+            delete nodeGroups[t.peerDid];
+          } else {
+            // Update count badge
+            const countEl = t.group.querySelector(".msg-group-count");
+            if (countEl && ng) countEl.textContent = ng.tids.length;
           }
         }
         // Si el feed quedó vacío, mostrar el empty state
@@ -428,25 +445,28 @@
     }
   }
 
-  function buildGroupEl(msg, direction) {
+  function buildGroupEl(msg, direction, peerDid) {
     const el = document.createElement("div");
     el.className = `msg-group ${direction}`;
 
     const fromDid = msg.from_did || "unknown";
-    const label = direction === "self"     ? "tu agente"
-                : direction === "outbound" ? "vos"
+    const label = peerDid === "self"   ? "tu agente"
+                : direction === "outbound" ? "vos → " + shortenDid(msg.to_did || "")
                 : shortenDid(fromDid);
     const ini    = label[0].toUpperCase();
-    const avCls  = direction === "self"     ? "self-av"
+    const avCls  = peerDid === "self"      ? "self-av"
                  : direction === "outbound" ? "outbound-av" : "";
-    const fromCls = direction === "self"     ? "self-lbl"
+    const fromCls = peerDid === "self"      ? "self-lbl"
                   : direction === "outbound" ? "outbound-lbl" : "";
 
     el.innerHTML = `
-      <div class="msg-group-header">
+      <div class="msg-group-header" title="Abrir conversación">
         <div class="msg-avatar ${avCls}">${esc(ini)}</div>
-        <span class="msg-from ${fromCls}" title="${esc(fromDid)}">${esc(label)}</span>
-        <span class="msg-group-count hidden"></span>
+        <div class="msg-group-meta">
+          <span class="msg-from ${fromCls}" title="${esc(fromDid)}">${esc(label)}</span>
+          <span class="msg-group-last-time"></span>
+        </div>
+        <span class="msg-group-count hidden">0</span>
         <button class="msg-collapse-btn" title="Colapsar">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <polyline points="18 15 12 9 6 15"/>
@@ -456,14 +476,18 @@
       <div class="msg-group-body"></div>
     `;
 
-    el.querySelector(".msg-collapse-btn").addEventListener("click", () => {
-      const collapsed = el.classList.toggle("collapsed");
-      const body = el.querySelector(".msg-group-body");
-      const countEl = el.querySelector(".msg-group-count");
-      const n = body.querySelectorAll(".msg-bubble").length;
-      countEl.textContent = `${n} msg${n !== 1 ? "s" : ""}`;
-      countEl.classList.toggle("hidden", !collapsed);
+    // Collapse button (stop propagation so it doesn't open thread panel)
+    el.querySelector(".msg-collapse-btn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      el.classList.toggle("collapsed");
     });
+
+    // Click on header → open thread panel (only for inbound peer conversations)
+    const header = el.querySelector(".msg-group-header");
+    if (direction === "inbound" && peerDid !== "self") {
+      header.style.cursor = "pointer";
+      header.addEventListener("click", () => openThreadPanel(peerDid));
+    }
 
     return el;
   }
@@ -589,7 +613,6 @@
   function hideReview() {
     reviewCard.classList.add("hidden");
     currentReviewThreadId = null;
-    originalProposal = "";
   }
 
   proposalEdit.addEventListener("input", () => {
@@ -982,6 +1005,111 @@
       body: JSON.stringify({ answers: {} }),
     });
     hideOnboarding();
+  });
+
+  // ------------------------------------------------------------------
+  // Thread detail panel
+  // ------------------------------------------------------------------
+
+  async function openThreadPanel(peerDid) {
+    currentThreadPeer = peerDid;
+    const label = shortenDid(peerDid);
+    threadPanelName.textContent = label;
+    threadPanelDid.textContent  = peerDid;
+    threadMessages.innerHTML = '<div class="thread-loading">Cargando…</div>';
+    threadPanel.classList.remove("hidden");
+
+    // Collect all thread_ids for this peer
+    const ng = nodeGroups[peerDid];
+    const tids = ng?.tids || [];
+
+    // Fetch full thread data for each thread_id
+    const allMsgs = [];
+    for (const tid of tids) {
+      try {
+        const resp = await fetch(`/api/threads/${encodeURIComponent(tid)}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          allMsgs.push(...(data.messages || []));
+        }
+      } catch (_) {
+        // fallback: use what we have in memory
+        const t = threads[tid];
+        if (t) allMsgs.push(t.msg);
+      }
+    }
+
+    // Sort by timestamp
+    allMsgs.sort((a, b) => (a.timestamp || "").localeCompare(b.timestamp || ""));
+
+    if (!allMsgs.length) {
+      threadMessages.innerHTML = '<div class="thread-empty">Sin mensajes</div>';
+      return;
+    }
+
+    threadMessages.innerHTML = "";
+    allMsgs.forEach((m) => {
+      const isOwn = m.from_did === nodeState.did || m.direction === "outbound";
+      const row = document.createElement("div");
+      row.className = `thread-msg-row ${isOwn ? "mine" : "theirs"}`;
+      row.innerHTML = `
+        <div class="thread-msg-bubble">${esc(m.content || "")}</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span class="thread-msg-time">${m.timestamp ? fmtTime(m.timestamp) : ""}</span>
+          ${m.status ? `<span class="thread-msg-status">${statusLabel(m.status)}</span>` : ""}
+        </div>
+      `;
+      threadMessages.appendChild(row);
+    });
+
+    // Scroll to bottom
+    threadMessages.scrollTop = threadMessages.scrollHeight;
+    threadReplyText.value = "";
+    threadReplyText.focus();
+  }
+
+  function closeThreadPanel() {
+    threadPanel.classList.add("hidden");
+    currentThreadPeer = null;
+  }
+
+  btnThreadClose?.addEventListener("click", closeThreadPanel);
+
+  btnThreadReply?.addEventListener("click", async () => {
+    const content = threadReplyText.value.trim();
+    if (!content || !currentThreadPeer) return;
+    const toDid = currentThreadPeer;
+    btnThreadReply.disabled = true;
+    try {
+      const resp = await fetch("/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to_did: toDid, content }),
+      });
+      const data = await resp.json();
+      if (data.status === "sent") {
+        // Add own message to thread view
+        const row = document.createElement("div");
+        row.className = "thread-msg-row mine";
+        row.innerHTML = `
+          <div class="thread-msg-bubble">${esc(content)}</div>
+          <span class="thread-msg-time">${fmtTime(new Date().toISOString())}</span>
+        `;
+        threadMessages.appendChild(row);
+        threadMessages.scrollTop = threadMessages.scrollHeight;
+        threadReplyText.value = "";
+        notify(`Enviado a ${shortenDid(toDid)} ✓`, "success");
+      } else {
+        notify("Error al enviar", "error");
+      }
+    } catch {
+      notify("Error de red", "error");
+    }
+    btnThreadReply.disabled = false;
+  });
+
+  threadReplyText?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); btnThreadReply?.click(); }
   });
 
   // ------------------------------------------------------------------
