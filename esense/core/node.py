@@ -419,6 +419,7 @@ class EsenseNode:
             "pending_count": self.queue.pending_count(),
             "mood": budget.get("mood", "moderate"),
             "auto_approve": budget.get("auto_approve", False),
+            "onboarding_complete": budget.get("onboarding_complete", False),
             "budget": {
                 "used_tokens": budget.get("used_tokens", 0),
                 "monthly_limit_tokens": budget.get("monthly_limit_tokens", 500_000),

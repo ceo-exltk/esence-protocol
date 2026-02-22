@@ -197,6 +197,15 @@ class EssenceStore:
         budget["mood"] = mood
         self.write_budget(budget)
 
+    def is_onboarding_complete(self) -> bool:
+        """Retorna True si el wizard de onboarding fue completado."""
+        return bool(self.read_budget().get("onboarding_complete", False))
+
+    def set_onboarding_complete(self) -> None:
+        budget = self.read_budget()
+        budget["onboarding_complete"] = True
+        self.write_budget(budget)
+
     def get_auto_approve(self) -> bool:
         """Retorna si auto-aprobación está activada."""
         return bool(self.read_budget().get("auto_approve", False))

@@ -328,6 +328,46 @@ def create_app(node: "EsenseNode | None" = None) -> FastAPI:
         patterns = node.store.read_patterns()
         return JSONResponse(patterns)
 
+    @app.get("/api/onboarding")
+    async def get_onboarding() -> JSONResponse:
+        """Estado del onboarding."""
+        if not node:
+            return JSONResponse({"complete": False})
+        return JSONResponse({"complete": node.store.is_onboarding_complete()})
+
+    @app.post("/api/onboarding/complete")
+    async def complete_onboarding(request: Request) -> JSONResponse:
+        """Guarda las respuestas del wizard en context.md y marca onboarding completo."""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="JSON inválido")
+
+        answers = body.get("answers", {})
+        identity_name = node.identity.did.split(":")[-1] if node.identity else "vos"
+
+        sections = []
+        if answers.get("identity"):
+            sections.append(f"# Quién soy\n{answers['identity'].strip()}")
+        if answers.get("style"):
+            sections.append(f"# Estilo de comunicación\n{answers['style'].strip()}")
+        if answers.get("topics"):
+            sections.append(f"# Temas y expertise\n{answers['topics'].strip()}")
+        if answers.get("requests"):
+            sections.append(f"# Cómo respondo ante pedidos\n{answers['requests'].strip()}")
+        if answers.get("limits"):
+            sections.append(f"# Lo que no respondo\n{answers['limits'].strip()}")
+        if answers.get("notes"):
+            sections.append(f"# Notas adicionales\n{answers['notes'].strip()}")
+
+        context = "\n\n".join(sections)
+        node.store.write_context(context)
+        node.store.set_onboarding_complete()
+        await ws_manager.broadcast("onboarding_complete", {})
+        return JSONResponse({"status": "ok"})
+
     @app.get("/api/auto-approve")
     async def get_auto_approve() -> JSONResponse:
         """Estado actual del toggle de auto-aprobación."""

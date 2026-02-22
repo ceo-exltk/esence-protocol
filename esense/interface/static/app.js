@@ -17,6 +17,8 @@
   let nodeState = {};
   let peerMap = {};                // did → peer object (con display_name, alias)
   let pendingApprovalState = null; // { wasEdited, recipientDid } — set on approve click
+  let obStep = 0;                  // onboarding current step index
+  const obAnswers = {};            // { identity, style, topics, requests, limits, notes }
   const threads = {};              // thread_id → { msg, el: bubble, group: groupEl, direction }
   let lastGroupKey = null;
   let lastGroupEl = null;
@@ -212,6 +214,11 @@
         showThinkingBubble(data.thread_id);
         break;
 
+      case "onboarding_complete":
+        hideOnboarding();
+        notify("Esencia guardada ✦ Tu agente ya sabe quién sos", "success");
+        break;
+
       case "error":
         console.error("Server:", data);
         break;
@@ -258,6 +265,7 @@
 
     if (state.mood) setMoodUI(state.mood);
     if (typeof state.auto_approve === "boolean") setAutoApproveUI(state.auto_approve);
+    if (state.onboarding_complete === false) showOnboarding();
   }
 
   // ------------------------------------------------------------------
@@ -792,6 +800,188 @@
 
   document.getElementById('new-peer-did').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') document.getElementById('btn-add-peer').click();
+  });
+
+  // ------------------------------------------------------------------
+  // Onboarding wizard
+  // ------------------------------------------------------------------
+
+  const OB_STEPS = [
+    {
+      key: "identity", required: true, type: "text",
+      num: "01", question: "¿Quién sos?",
+      hint: "Tu agente va a representarte. Contale brevemente a qué te dedicás y cuál es tu rol.",
+      placeholder: "Soy desarrollador de software, fundador de Esense Protocol…",
+    },
+    {
+      key: "style", required: true, type: "choice",
+      num: "02", question: "¿Cómo comunicás?",
+      hint: "Elegí el estilo que mejor te describe. Tu agente va a usarlo por defecto.",
+      choices: [
+        { icon: "⚡", label: "Directo y conciso",   desc: "Al punto, sin rodeos",           value: "Directo y conciso — va al punto sin rodeos." },
+        { icon: "◎", label: "Detallado y analítico", desc: "Contexto y porqués",            value: "Detallado y analítico — explica el contexto y los porqués." },
+        { icon: "✦", label: "Cálido y cercano",     desc: "Conexión humana primero",        value: "Cálido y cercano — prioriza la conexión humana." },
+        { icon: "//", label: "Técnico y preciso",   desc: "Exactitud sobre todo",           value: "Técnico y preciso — la exactitud es lo más importante." },
+      ],
+    },
+    {
+      key: "topics", required: true, type: "text",
+      num: "03", question: "¿Sobre qué sos experto?",
+      hint: "Temas en los que tu agente puede responder con autoridad.",
+      placeholder: "tecnología, startups, diseño de producto, filosofía…",
+    },
+    {
+      key: "requests", required: false, type: "text",
+      num: "04", question: "¿Cómo respondés ante pedidos?",
+      hint: "Cuando alguien te pide algo, ¿qué evaluás antes de decir que sí?",
+      placeholder: "Me fijo si es urgente, si puedo ayudar de verdad, si se alinea con mis prioridades…",
+    },
+    {
+      key: "limits", required: false, type: "text",
+      num: "05", question: "¿Qué no querés responder?",
+      hint: "Tu agente va a rechazar o ignorar estos mensajes automáticamente.",
+      placeholder: "spam, pedidos de gente que no conozco, propaganda política…",
+    },
+    {
+      key: "notes", required: false, type: "text",
+      num: "06", question: "¿Algo más que deba saber?",
+      hint: "Cualquier cosa que ayude a tu agente a representarte mejor.",
+      placeholder: "Prefiero responder tarde pero bien. No me gustan los saludos formales…",
+    },
+  ];
+
+  const obOverlay  = document.getElementById("onboarding-overlay");
+  const obBody     = document.getElementById("onboarding-body");
+  const obBar      = document.getElementById("onboarding-bar");
+  const obStepNum  = document.getElementById("onboarding-step-num");
+  const btnObNext  = document.getElementById("btn-ob-next");
+  const btnObSkip  = document.getElementById("btn-ob-skip");
+  const btnObLater = document.getElementById("btn-ob-later");
+
+  function showOnboarding() {
+    obStep = 0;
+    obOverlay.classList.remove("hidden");
+    renderObStep();
+  }
+
+  function hideOnboarding() {
+    obOverlay.classList.add("hidden");
+  }
+
+  function renderObStep() {
+    const step = OB_STEPS[obStep];
+    const total = OB_STEPS.length;
+    const pct = Math.round(((obStep) / total) * 100);
+    obBar.style.width = `${pct}%`;
+    obStepNum.textContent = `${obStep + 1} / ${total}`;
+    btnObSkip.style.display = step.required ? "none" : "";
+    btnObNext.textContent = obStep === total - 1 ? "Empezar →" : "Siguiente →";
+
+    if (step.type === "text") {
+      obBody.innerHTML = `
+        <div class="ob-step">
+          <div class="ob-num">${esc(step.num)}</div>
+          <h2 class="ob-question">${esc(step.question)}</h2>
+          <p class="ob-hint">${esc(step.hint)}</p>
+          <textarea class="ob-textarea" id="ob-input" rows="4"
+            placeholder="${esc(step.placeholder || "")}"
+          >${esc(obAnswers[step.key] || "")}</textarea>
+        </div>
+      `;
+      setTimeout(() => document.getElementById("ob-input")?.focus(), 50);
+    } else if (step.type === "choice") {
+      const choicesHtml = step.choices.map((c) => `
+        <button class="ob-choice ${obAnswers[step.key] === c.value ? "selected" : ""}"
+                data-value="${esc(c.value)}">
+          <span class="ob-choice-icon">${esc(c.icon)}</span>
+          <div class="ob-choice-text">
+            <strong>${esc(c.label)}</strong>
+            <span>${esc(c.desc)}</span>
+          </div>
+        </button>
+      `).join("");
+      obBody.innerHTML = `
+        <div class="ob-step">
+          <div class="ob-num">${esc(step.num)}</div>
+          <h2 class="ob-question">${esc(step.question)}</h2>
+          <p class="ob-hint">${esc(step.hint)}</p>
+          <div class="ob-choices">${choicesHtml}</div>
+        </div>
+      `;
+      obBody.querySelectorAll(".ob-choice").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          obBody.querySelectorAll(".ob-choice").forEach((b) => b.classList.remove("selected"));
+          btn.classList.add("selected");
+          obAnswers[step.key] = btn.dataset.value;
+        });
+      });
+    }
+  }
+
+  function obAdvance() {
+    const step = OB_STEPS[obStep];
+    // Leer valor del input si es text
+    if (step.type === "text") {
+      const val = document.getElementById("ob-input")?.value.trim() || "";
+      if (step.required && !val) {
+        document.getElementById("ob-input")?.classList.add("ob-required-shake");
+        setTimeout(() => document.getElementById("ob-input")?.classList.remove("ob-required-shake"), 600);
+        return;
+      }
+      obAnswers[step.key] = val;
+    } else if (step.type === "choice" && step.required && !obAnswers[step.key]) {
+      obBody.querySelector(".ob-choices")?.classList.add("ob-required-shake");
+      setTimeout(() => obBody.querySelector(".ob-choices")?.classList.remove("ob-required-shake"), 600);
+      return;
+    }
+
+    if (obStep < OB_STEPS.length - 1) {
+      obStep++;
+      renderObStep();
+    } else {
+      submitOnboarding();
+    }
+  }
+
+  async function submitOnboarding() {
+    btnObNext.disabled = true;
+    btnObNext.textContent = "Guardando…";
+    try {
+      const resp = await fetch("/api/onboarding/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: obAnswers }),
+      });
+      if (resp.ok) {
+        obBar.style.width = "100%";
+        hideOnboarding();
+        notify("Esencia guardada ✦ Tu agente ya sabe quién sos", "success");
+      } else {
+        notify("Error guardando la esencia", "error");
+        btnObNext.disabled = false;
+        btnObNext.textContent = "Empezar →";
+      }
+    } catch {
+      notify("Error de red", "error");
+      btnObNext.disabled = false;
+      btnObNext.textContent = "Empezar →";
+    }
+  }
+
+  btnObNext?.addEventListener("click", obAdvance);
+  btnObSkip?.addEventListener("click", () => {
+    obAnswers[OB_STEPS[obStep].key] = "";
+    if (obStep < OB_STEPS.length - 1) { obStep++; renderObStep(); }
+    else submitOnboarding();
+  });
+  btnObLater?.addEventListener("click", async () => {
+    // Marcar como completo sin guardar nada — el usuario configurará después
+    await fetch("/api/onboarding/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers: {} }),
+    });
+    hideOnboarding();
   });
 
   // ------------------------------------------------------------------

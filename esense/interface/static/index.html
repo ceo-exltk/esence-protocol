@@ -270,6 +270,27 @@
     </aside>
   </main>
 
+  <!-- Onboarding overlay -->
+  <div id="onboarding-overlay" class="onboarding-overlay hidden">
+    <div class="onboarding-card">
+      <div class="onboarding-top">
+        <span class="logo">esense</span>
+        <div class="onboarding-progress-wrap">
+          <div class="onboarding-bar" id="onboarding-bar"></div>
+        </div>
+        <span class="onboarding-step-num" id="onboarding-step-num">1 / 6</span>
+      </div>
+      <div id="onboarding-body" class="onboarding-body"></div>
+      <div class="onboarding-footer">
+        <button class="onboarding-skip-btn" id="btn-ob-skip">Saltar</button>
+        <button class="btn btn-ob-next" id="btn-ob-next">Siguiente →</button>
+      </div>
+      <div class="onboarding-later">
+        <button id="btn-ob-later">Configurar más tarde</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/static/app.js"></script>
 </body>
 </html>
