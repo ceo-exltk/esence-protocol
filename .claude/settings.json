@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(./setup.sh)",
+      "Bash(./start.sh)",
+      "Bash(ngrok version)",
+      "Bash(ngrok config add-authtoken:*)",
+      "Bash(which:*)",
+      "Bash(python3 -m pytest:*)",
+      "Bash(python3 -m esense.*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(cp .env.example .env)",
+      "Bash(git status)",
+      "Bash(git log:*)"
+    ]
+  }
+}

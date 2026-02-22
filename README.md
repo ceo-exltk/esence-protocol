@@ -19,7 +19,21 @@ Protocolo P2P descentralizado donde cada persona instala un nodo que crea un age
 ```bash
 git clone https://github.com/ceo-exltk/esense-protocol.git
 cd esense-protocol
+```
 
+### Opción A — con Claude Code (recomendado)
+
+Si tenés [Claude Code](https://claude.ai/code) instalado, abrí el repo y ejecutá:
+
+```
+/setup
+```
+
+Claude Code va a guiarte por todo el proceso automáticamente.
+
+### Opción B — manual
+
+```bash
 ./setup.sh
 ```
 

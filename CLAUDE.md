@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Instalación rápida
+
+Si acabás de clonar este repo, ejecutá el skill de setup:
+```
+/setup
+```
+Claude Code va a guiarte por todo el proceso automáticamente.
+
+Para debug y preguntas sobre el código, el subagente `esense-dev` tiene contexto completo del protocolo.
+
+---
+
 # Esense Protocol — Node 0 (Genesis)
 
 ## Qué es esto
