@@ -1,5 +1,5 @@
 """
-esence/interface/server.py — FastAPI app: rutas ANP públicas + UI local
+esense/interface/server.py — FastAPI app: rutas ANP públicas + UI local
 """
 from __future__ import annotations
 
@@ -15,11 +15,11 @@ from fastapi import FastAPI, HTTPException, Request, WebSocket
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from esence.config import config
-from esence.interface.ws import ws_manager
+from esense.config import config
+from esense.interface.ws import ws_manager
 
 if TYPE_CHECKING:
-    from esence.core.node import EsenceNode
+    from esense.core.node import EsenseNode
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +31,12 @@ _RATE_WINDOW = 60   # segundos
 _RATE_MAX = 30      # mensajes por ventana por IP
 
 
-def create_app(node: "EsenceNode | None" = None) -> FastAPI:
+def create_app(node: "EsenseNode | None" = None) -> FastAPI:
     """Crea y configura la FastAPI app."""
 
     app = FastAPI(
-        title="Esence Node",
-        description="Esence Protocol — P2P Agent Node",
+        title="Esense Node",
+        description="Esense Protocol — P2P Agent Node",
         version="0.2.0",
         docs_url=None,
         redoc_url=None,
@@ -52,7 +52,7 @@ def create_app(node: "EsenceNode | None" = None) -> FastAPI:
     @app.post("/anp/message")
     async def receive_anp_message(request: Request) -> JSONResponse:
         """Recibe un mensaje ANP de otro nodo."""
-        from esence.protocol.transport import receive_message
+        from esense.protocol.transport import receive_message
 
         # Rate limiting por IP
         client_ip = request.client.host if request.client else "unknown"
@@ -158,10 +158,10 @@ def create_app(node: "EsenceNode | None" = None) -> FastAPI:
         content = body.get("content")
         if not to_did or not content:
             raise HTTPException(status_code=400, detail="to_did y content requeridos")
-        from esence.protocol.transport import send_message
-        from esence.protocol.message import EsenceMessage, MessageType, MessageStatus
+        from esense.protocol.transport import send_message
+        from esense.protocol.message import EsenseMessage, MessageType, MessageStatus
         import uuid
-        msg = EsenceMessage(
+        msg = EsenseMessage(
             type=MessageType.THREAD_MESSAGE,
             thread_id=str(uuid.uuid4()),
             from_did=node.identity.did,
@@ -208,7 +208,7 @@ def create_app(node: "EsenceNode | None" = None) -> FastAPI:
         """Estado de salud del nodo."""
         if not node:
             return JSONResponse({"status": "initializing"}, status_code=503)
-        from esence.essence.maturity import calculate_maturity
+        from esense.essence.maturity import calculate_maturity
         over_budget = node.store.is_over_budget()
         budget = node.store.read_budget()
         peers = node.peers.get_all()
@@ -301,8 +301,8 @@ def create_app(node: "EsenceNode | None" = None) -> FastAPI:
     @app.get("/api/maturity")
     async def get_maturity() -> JSONResponse:
         """Essence maturity score."""
-        from esence.essence.maturity import calculate_maturity, maturity_label
-        from esence.essence.store import EssenceStore
+        from esense.essence.maturity import calculate_maturity, maturity_label
+        from esense.essence.store import EssenceStore
         store = EssenceStore()
         score = calculate_maturity(store)
         return JSONResponse({"score": score, "label": maturity_label(score)})
@@ -326,7 +326,7 @@ def create_app(node: "EsenceNode | None" = None) -> FastAPI:
     async def serve_ui() -> FileResponse:
         index = STATIC_DIR / "index.html"
         if not index.exists():
-            return HTMLResponse("<h1>Esence Node</h1><p>UI not found</p>")
+            return HTMLResponse("<h1>Esense Node</h1><p>UI not found</p>")
         return FileResponse(str(index), headers={"Cache-Control": "no-cache"})
 
     return app

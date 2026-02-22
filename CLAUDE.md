@@ -2,11 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-# Esence Protocol — Node 0 (Genesis)
+# Esense Protocol — Node 0 (Genesis)
 
 ## Qué es esto
 
-Esence es un protocolo P2P descentralizado donde cada persona instala un nodo que crea un agente digital que la representa. El agente aprende la esencia del dueño a través de la interacción (no configuración), y se comunica asincrónicamente con otros agentes de la red. No hay servidor central. No hay empresa dueña. El protocolo es el producto.
+Esense es un protocolo P2P descentralizado donde cada persona instala un nodo que crea un agente digital que la representa. El agente aprende la esencia del dueño a través de la interacción (no configuración), y se comunica asincrónicamente con otros agentes de la red. No hay servidor central. No hay empresa dueña. El protocolo es el producto.
 
 **Tagline**: "No compartís tu suscripción. Compartís quién sos."
 
@@ -16,7 +16,7 @@ Este repo es el **nodo genesis — Node 0**. El primer nodo de la red, equivalen
 
 ## Estado de implementación
 
-**Todo el código de aplicación está por implementarse.** Los directorios de módulos (`core/`, `essence/`, `protocol/`, `interface/`) existen pero solo contienen `__init__.py` vacíos. El punto de entrada `python3 -m esence.core.node` aún no funciona.
+**Todo el código de aplicación está por implementarse.** Los directorios de módulos (`core/`, `essence/`, `protocol/`, `interface/`) existen pero solo contienen `__init__.py` vacíos. El punto de entrada `python3 -m esense.core.node` aún no funciona.
 
 Fases completadas: **ninguna**. Empezar por Fase 1 — Identidad.
 
@@ -39,7 +39,7 @@ Fases completadas: **ninguna**. Empezar por Fase 1 — Identidad.
 ### Setup inicial
 
 ```bash
-cp .env.example .env          # configurar ANTHROPIC_API_KEY, ESENCE_NODE_NAME
+cp .env.example .env          # configurar ANTHROPIC_API_KEY, ESENSE_NODE_NAME
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -51,7 +51,7 @@ pip install -r requirements.txt
 ```bash
 ./start.sh                    # arranca y abre localhost:7777
 # o directamente:
-python3 -m esence.core.node
+python3 -m esense.core.node
 ```
 
 ### Variables de entorno (`.env`)
@@ -59,10 +59,10 @@ python3 -m esence.core.node
 | Variable | Descripción |
 |---|---|
 | `ANTHROPIC_API_KEY` | API key del proveedor AI |
-| `ESENCE_NODE_NAME` | Nombre del nodo (parte del DID) |
-| `ESENCE_DOMAIN` | Dominio (default: `localhost`) |
-| `ESENCE_DONATION_PCT` | % de capacidad compartida con la red (default: 10) |
-| `ESENCE_PORT` | Puerto de la interfaz (default: 7777) |
+| `ESENSE_NODE_NAME` | Nombre del nodo (parte del DID) |
+| `ESENSE_DOMAIN` | Dominio (default: `localhost`) |
+| `ESENSE_DONATION_PCT` | % de capacidad compartida con la red (default: 10) |
+| `ESENSE_PORT` | Puerto de la interfaz (default: 7777) |
 
 ---
 
@@ -71,14 +71,14 @@ python3 -m esence.core.node
 ### Módulos
 
 ```
-esence/
+esense/
 ├── core/node.py        — proceso principal, event loop, orquesta todo
 ├── core/identity.py    — DID:WBA, Ed25519 key pair, firma/verificación
 ├── core/queue.py       — cola de mensajes inbound/outbound
 ├── essence/engine.py   — interfaz con AI provider, genera respuestas
 ├── essence/store.py    — lee/escribe el essence store
 ├── essence/maturity.py — calcula essence_maturity score
-├── protocol/message.py — schema de mensajes ANP + extensiones Esence
+├── protocol/message.py — schema de mensajes ANP + extensiones Esense
 ├── protocol/transport.py — envío/recepción HTTPS entre nodos
 ├── protocol/peers.py   — gestión de peer list, gossip
 ├── interface/server.py — FastAPI: rutas ANP públicas + rutas locales UI
@@ -100,11 +100,11 @@ Creado por `setup.sh`. Todos los archivos son JSON o Markdown planos, editables 
 | `budget.json` | Límites de gasto AI y configuración de autonomía |
 | `threads/` | Hilos de conversación con otros nodos |
 
-### Protocolo de mensajes (Esence over ANP)
+### Protocolo de mensajes (Esense over ANP)
 
 ```json
 {
-  "esence_version": "0.2",
+  "esense_version": "0.2",
   "type": "thread_message | thread_reply | peer_intro | capacity_status",
   "thread_id": "uuid",
   "from_did": "did:wba:sender.com:alice",

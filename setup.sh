@@ -1,5 +1,5 @@
 #!/bin/bash
-# Esence Node — Setup Script
+# Esense Node — Setup Script
 # Genera identidad, configura API key y donation %, inicializa essence store
 
 set -e
@@ -27,9 +27,9 @@ pip install -r requirements.txt --quiet
 
 # Run setup
 echo "🔑 Generating node identity..."
-python3 -m esence.setup
+python3 -m esense.setup
 
 echo ""
 echo "✅ Node setup complete."
-echo "   Run ./start.sh to launch your Esence node."
+echo "   Run ./start.sh to launch your Esense node."
 echo ""

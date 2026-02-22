@@ -1,5 +1,5 @@
 """
-esence/core/identity.py — DID:WBA, Ed25519 key pair, firma y verificación
+esense/core/identity.py — DID:WBA, Ed25519 key pair, firma y verificación
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.serialization import (
     PublicFormat,
 )
 
-from esence.config import config
+from esense.config import config
 
 
 def _b64url(data: bytes) -> str:
@@ -37,7 +37,7 @@ def _b64url_decode(s: str) -> bytes:
 
 
 class Identity:
-    """Identidad Ed25519 de un nodo Esence."""
+    """Identidad Ed25519 de un nodo Esense."""
 
     def __init__(self, private_key: Ed25519PrivateKey, did: str):
         self._private_key = private_key

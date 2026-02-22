@@ -1,5 +1,5 @@
 """
-esence/essence/providers/claude_code.py — Provider usando Claude Code CLI
+esense/essence/providers/claude_code.py — Provider usando Claude Code CLI
 
 Invoca `claude -p <prompt>` como subprocess. No requiere API key separada —
 usa la sesión activa de Claude Code en el sistema.
@@ -10,7 +10,7 @@ import asyncio
 import logging
 import shutil
 
-from esence.essence.providers.base import BaseProvider, ProviderResponse
+from esense.essence.providers.base import BaseProvider, ProviderResponse
 
 logger = logging.getLogger(__name__)
 

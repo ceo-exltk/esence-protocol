@@ -1,8 +1,8 @@
 """
-esence/setup.py — Setup interactivo del nodo Esence
+esense/setup.py — Setup interactivo del nodo Esense
 
 Genera keys, crea essence-store/, escribe archivos iniciales.
-Runnable como: python3 -m esence.setup
+Runnable como: python3 -m esense.setup
 """
 from __future__ import annotations
 
@@ -64,15 +64,15 @@ def run_setup() -> None:
 
     node_name = _prompt(
         "Nombre del nodo (sin espacios)",
-        existing_env.get("ESENCE_NODE_NAME", "node0"),
+        existing_env.get("ESENSE_NODE_NAME", "node0"),
     )
     domain = _prompt(
         "Dominio (localhost para desarrollo)",
-        existing_env.get("ESENCE_DOMAIN", "localhost"),
+        existing_env.get("ESENSE_DOMAIN", "localhost"),
     )
     port = _prompt(
         "Puerto de la interfaz",
-        existing_env.get("ESENCE_PORT", "7777"),
+        existing_env.get("ESENSE_PORT", "7777"),
     )
     print()
     print("  Provider AI")
@@ -91,25 +91,25 @@ def run_setup() -> None:
     print()
     donation_pct = _prompt(
         "% de capacidad a compartir con la red",
-        existing_env.get("ESENCE_DONATION_PCT", "10"),
+        existing_env.get("ESENSE_DONATION_PCT", "10"),
     )
     public_url = _prompt(
         "URL pública (ngrok, VPS) — Enter para saltar",
-        existing_env.get("ESENCE_PUBLIC_URL", ""),
+        existing_env.get("ESENSE_PUBLIC_URL", ""),
     )
 
     # Escribir .env
-    env_content = f"""# Esence Node Configuration
-# Generado por esence/setup.py — {datetime.now(timezone.utc).isoformat()}
+    env_content = f"""# Esense Node Configuration
+# Generado por esense/setup.py — {datetime.now(timezone.utc).isoformat()}
 
-ESENCE_PROVIDER={provider}
+ESENSE_PROVIDER={provider}
 ANTHROPIC_API_KEY={api_key}
 
-ESENCE_NODE_NAME={node_name}
-ESENCE_DOMAIN={domain}
-ESENCE_PORT={port}
-ESENCE_DONATION_PCT={donation_pct}
-ESENCE_PUBLIC_URL={public_url}
+ESENSE_NODE_NAME={node_name}
+ESENSE_DOMAIN={domain}
+ESENSE_PORT={port}
+ESENSE_DONATION_PCT={donation_pct}
+ESENSE_PUBLIC_URL={public_url}
 """
     env_path.write_text(env_content)
     print(f"\n  ✓ .env escrito")
@@ -122,14 +122,14 @@ ESENCE_PUBLIC_URL={public_url}
     load_dotenv(env_path, override=True)
 
     import os
-    os.environ["ESENCE_NODE_NAME"] = node_name
-    os.environ["ESENCE_DOMAIN"] = domain
-    os.environ["ESENCE_PORT"] = port
+    os.environ["ESENSE_NODE_NAME"] = node_name
+    os.environ["ESENSE_DOMAIN"] = domain
+    os.environ["ESENSE_PORT"] = port
 
     # ------------------------------------------------------------------
     # Generar identidad
     # ------------------------------------------------------------------
-    from esence.core.identity import Identity
+    from esense.core.identity import Identity
 
     store_dir = root / "essence-store"
 
@@ -153,7 +153,7 @@ ESENCE_PUBLIC_URL={public_url}
     # ------------------------------------------------------------------
     # Inicializar essence-store
     # ------------------------------------------------------------------
-    from esence.essence.store import EssenceStore
+    from esense.essence.store import EssenceStore
 
     identity_data = {
         "id": identity.did,
@@ -170,7 +170,7 @@ ESENCE_PUBLIC_URL={public_url}
     print(f"  ✓ essence-store/ inicializado")
 
     # Verificar firma como test
-    test_payload = b"esence:genesis"
+    test_payload = b"esense:genesis"
     sig = identity.sign(test_payload)
     assert identity.verify(test_payload, sig), "Error: verificación de firma falló"
     print(f"  ✓ Test de firma Ed25519: OK")

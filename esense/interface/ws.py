@@ -1,5 +1,5 @@
 """
-esence/interface/ws.py — WebSocket handler para la UI local
+esense/interface/ws.py — WebSocket handler para la UI local
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Any, TYPE_CHECKING
 from fastapi import WebSocket, WebSocketDisconnect
 
 if TYPE_CHECKING:
-    from esence.core.node import EsenceNode
+    from esense.core.node import EsenseNode
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +21,9 @@ class WSManager:
 
     def __init__(self):
         self._connections: list[WebSocket] = []
-        self._node: "EsenceNode | None" = None
+        self._node: "EsenseNode | None" = None
 
-    def set_node(self, node: "EsenceNode") -> None:
+    def set_node(self, node: "EsenseNode") -> None:
         self._node = node
 
     async def connect(self, ws: WebSocket) -> None:

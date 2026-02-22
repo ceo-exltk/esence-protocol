@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from esence.essence.maturity import calculate_maturity, maturity_label
-from esence.essence.store import EssenceStore
+from esense.essence.maturity import calculate_maturity, maturity_label
+from esense.essence.store import EssenceStore
 
 
 def test_maturity_zero_with_empty_store(tmp_store: EssenceStore):

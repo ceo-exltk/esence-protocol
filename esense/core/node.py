@@ -1,7 +1,7 @@
 """
-esence/core/node.py — Proceso principal del nodo Esence
+esense/core/node.py — Proceso principal del nodo Esense
 
-Runnable como: python3 -m esence.core.node
+Runnable como: python3 -m esense.core.node
 """
 from __future__ import annotations
 
@@ -13,15 +13,15 @@ from typing import Any
 
 import uvicorn
 
-from esence.config import Config, config
-from esence.core.identity import Identity
-from esence.core.queue import MessageQueue
-from esence.essence.engine import EssenceEngine
-from esence.essence.maturity import calculate_maturity, maturity_label
-from esence.essence.store import EssenceStore
-from esence.protocol.message import MessageStatus, MessageType, PeerIntro
-from esence.protocol.peers import PeerManager
-from esence.protocol.transport import send_message
+from esense.config import Config, config
+from esense.core.identity import Identity
+from esense.core.queue import MessageQueue
+from esense.essence.engine import EssenceEngine
+from esense.essence.maturity import calculate_maturity, maturity_label
+from esense.essence.store import EssenceStore
+from esense.protocol.message import MessageStatus, MessageType, PeerIntro
+from esense.protocol.peers import PeerManager
+from esense.protocol.transport import send_message
 
 logging.basicConfig(
     level=logging.INFO,
@@ -31,8 +31,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class EsenceNode:
-    """Nodo Esence — orquesta todos los subsistemas."""
+class EsenseNode:
+    """Nodo Esense — orquesta todos los subsistemas."""
 
     def __init__(self):
         self.store = EssenceStore()
@@ -89,7 +89,7 @@ class EsenceNode:
 
     async def start(self) -> None:
         """Inicializa el nodo y arranca todos los loops."""
-        logger.info(f"Arrancando Esence Node — {config.did()}")
+        logger.info(f"Arrancando Esense Node — {config.did()}")
 
         # Validar configuración
         errors = config.validate()
@@ -133,7 +133,7 @@ class EsenceNode:
             logger.info(f"Mensajes pendientes restaurados: {pending}")
 
         # Suscribir queue a ws_manager para broadcast en tiempo real
-        from esence.interface.ws import ws_manager
+        from esense.interface.ws import ws_manager
         self.queue.subscribe(self._on_queue_event)
 
         self._running = True
@@ -170,7 +170,7 @@ class EsenceNode:
     # ------------------------------------------------------------------
 
     async def _run_http_server(self) -> None:
-        from esence.interface.server import create_app
+        from esense.interface.server import create_app
         app = create_app(node=self)
 
         server_config = uvicorn.Config(
@@ -202,7 +202,7 @@ class EsenceNode:
 
     async def _handle_inbound(self, message: dict[str, Any]) -> None:
         """Procesa un mensaje inbound: genera respuesta propuesta."""
-        from esence.interface.ws import ws_manager
+        from esense.interface.ws import ws_manager
 
         sender_did = message.get("from_did", "")
         content = message.get("content", "")
@@ -286,12 +286,12 @@ class EsenceNode:
 
     async def _send_outbound(self, message: dict[str, Any]) -> None:
         """Envía un mensaje outbound firmado."""
-        from esence.protocol.message import parse_message
+        from esense.protocol.message import parse_message
 
         try:
-            esence_msg = parse_message(message)
+            esense_msg = parse_message(message)
             if self.identity:
-                success = await send_message(esence_msg, self.identity)
+                success = await send_message(esense_msg, self.identity)
                 thread_id = message.get("thread_id", "")
                 status = MessageStatus.SENT if success else MessageStatus.PENDING_HUMAN_REVIEW
                 await self.queue.mark_status(thread_id, status)
@@ -309,7 +309,7 @@ class EsenceNode:
     # ------------------------------------------------------------------
 
     async def _on_queue_event(self, event_type: str, data: dict) -> None:
-        from esence.interface.ws import ws_manager
+        from esense.interface.ws import ws_manager
         await ws_manager.broadcast(event_type, data)
 
         # Disparar extracción de patrones cada 5 correcciones
@@ -320,12 +320,12 @@ class EsenceNode:
 
     async def _run_pattern_extraction(self) -> None:
         """Extrae patrones en background después de cada 5 correcciones."""
-        from esence.essence.patterns import extract_patterns
+        from esense.essence.patterns import extract_patterns
         try:
             added = await extract_patterns(self.store, self.engine)
             if added:
                 logger.info(f"Extracción de patrones completada: {added} nuevos patrones")
-                from esence.interface.ws import ws_manager
+                from esense.interface.ws import ws_manager
                 await ws_manager.broadcast("patterns_updated", {"new_patterns": added})
         except Exception as e:
             logger.error(f"Error en extracción de patrones: {e}")
@@ -398,7 +398,7 @@ class EsenceNode:
 
     def get_state(self) -> dict[str, Any]:
         """Retorna el estado actual del nodo para la UI."""
-        from esence.essence.maturity import calculate_maturity, maturity_label
+        from esense.essence.maturity import calculate_maturity, maturity_label
 
         budget = self.store.read_budget()
         maturity = calculate_maturity(self.store)
@@ -455,7 +455,7 @@ class EsenceNode:
 # ------------------------------------------------------------------
 
 async def main() -> None:
-    node = EsenceNode()
+    node = EsenseNode()
     try:
         await node.start()
     except KeyboardInterrupt:

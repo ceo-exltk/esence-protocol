@@ -1,5 +1,5 @@
 """
-esence/essence/providers/ollama.py — Provider usando Ollama local
+esense/essence/providers/ollama.py — Provider usando Ollama local
 
 Requiere Ollama corriendo en localhost:11434.
 Sin API key. Ideal para uso completamente offline.
@@ -12,7 +12,7 @@ from typing import AsyncIterator
 
 import httpx
 
-from esence.essence.providers.base import BaseProvider, ProviderResponse
+from esense.essence.providers.base import BaseProvider, ProviderResponse
 
 logger = logging.getLogger(__name__)
 

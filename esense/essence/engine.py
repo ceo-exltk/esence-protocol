@@ -1,5 +1,5 @@
 """
-esence/essence/engine.py — Motor de generación de respuestas
+esense/essence/engine.py — Motor de generación de respuestas
 
 Construye el system prompt desde el essence store y delega la generación
 al provider configurado (anthropic, claude_code, ollama, openai).
@@ -9,13 +9,13 @@ from __future__ import annotations
 import logging
 from typing import AsyncIterator
 
-from esence.config import config
-from esence.essence.maturity import calculate_maturity, maturity_label
-from esence.essence.store import EssenceStore
+from esense.config import config
+from esense.essence.maturity import calculate_maturity, maturity_label
+from esense.essence.store import EssenceStore
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT_TEMPLATE = """Sos el agente digital de {name} en la red Esence.
+SYSTEM_PROMPT_TEMPLATE = """Sos el agente digital de {name} en la red Esense.
 
 ## Tu identidad
 DID: {did}
@@ -51,7 +51,7 @@ class EssenceEngine:
 
     def _get_provider(self):
         if self._provider is None:
-            from esence.essence.providers import get_provider
+            from esense.essence.providers import get_provider
             self._provider = get_provider()
             logger.info(f"Provider AI: {self._provider.name}")
         return self._provider

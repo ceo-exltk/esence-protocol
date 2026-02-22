@@ -1,5 +1,5 @@
 """
-esence/protocol/transport.py — Envío/recepción HTTPS entre nodos Esence
+esense/protocol/transport.py — Envío/recepción HTTPS entre nodos Esense
 
 Resuelve DID → URL, firma mensajes salientes, verifica firmas entrantes.
 """
@@ -14,8 +14,8 @@ from typing import Any
 
 import httpx
 
-from esence.core.identity import Identity
-from esence.protocol.message import EsenceMessage, parse_message
+from esense.core.identity import Identity
+from esense.protocol.message import EsenseMessage, parse_message
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +73,7 @@ def _extract_public_key_from_did_doc(did_doc: dict[str, Any]) -> str | None:
 
 
 async def send_message(
-    message: EsenceMessage,
+    message: EsenseMessage,
     identity: Identity,
     timeout: float = 30.0,
 ) -> bool:
@@ -114,7 +114,7 @@ async def send_message(
 
 async def receive_message(
     payload: dict[str, Any],
-) -> tuple[EsenceMessage, bool]:
+) -> tuple[EsenseMessage, bool]:
     """
     Procesa un mensaje entrante:
     1. Parsea el payload al tipo correcto

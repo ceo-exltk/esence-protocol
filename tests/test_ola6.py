@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, MagicMock, patch, call
 import pytest
 from fastapi.testclient import TestClient
 
-from esence.core.identity import Identity
-from esence.interface.server import create_app
+from esense.core.identity import Identity
+from esense.interface.server import create_app
 
 
 # ------------------------------------------------------------------
@@ -22,9 +22,9 @@ from esence.interface.server import create_app
 
 def _make_node(store_dir: Path):
     """Crea un nodo con store real en tmp_path."""
-    from esence.essence.store import EssenceStore
-    from esence.protocol.peers import PeerManager
-    from esence.core.queue import MessageQueue
+    from esense.essence.store import EssenceStore
+    from esense.protocol.peers import PeerManager
+    from esense.core.queue import MessageQueue
 
     store = EssenceStore(store_dir=store_dir)
     store.initialize({
@@ -44,8 +44,8 @@ def _make_node(store_dir: Path):
     node.queue.restore_pending()
 
     # Wire get_recent_threads from real node method
-    from esence.core.node import EsenceNode
-    node.get_recent_threads = lambda limit=20: EsenceNode.get_recent_threads(node, limit)
+    from esense.core.node import EsenseNode
+    node.get_recent_threads = lambda limit=20: EsenseNode.get_recent_threads(node, limit)
 
     return node
 
@@ -291,9 +291,9 @@ class TestTypingIndicator:
     @pytest.mark.asyncio
     async def test_handle_inbound_broadcasts_agent_thinking(self, tmp_path):
         """_handle_inbound debe emitir agent_thinking antes de llamar engine.generate."""
-        from esence.core.node import EsenceNode
+        from esense.core.node import EsenseNode
 
-        node = EsenceNode.__new__(EsenceNode)
+        node = EsenseNode.__new__(EsenseNode)
         store = MagicMock()
         store.read_thread.return_value = []
         store.write_thread.return_value = None
@@ -320,7 +320,7 @@ class TestTypingIndicator:
         async def mock_broadcast(event_type, data):
             broadcast_calls.append((event_type, data))
 
-        with patch("esence.interface.ws.ws_manager") as mock_ws:
+        with patch("esense.interface.ws.ws_manager") as mock_ws:
             mock_ws.broadcast = mock_broadcast
             message = {
                 "thread_id": "test-thread-123",
@@ -329,7 +329,7 @@ class TestTypingIndicator:
                 "type": "thread_message",
                 "status": "pending_human_review",
             }
-            await EsenceNode._handle_inbound(node, message)
+            await EsenseNode._handle_inbound(node, message)
 
         # Verificar que agent_thinking fue el primer broadcast
         assert len(broadcast_calls) >= 2
@@ -342,9 +342,9 @@ class TestTypingIndicator:
     @pytest.mark.asyncio
     async def test_agent_thinking_emitted_before_generate(self, tmp_path):
         """agent_thinking debe aparecer antes del broadcast de review_ready."""
-        from esence.core.node import EsenceNode
+        from esense.core.node import EsenseNode
 
-        node = EsenceNode.__new__(EsenceNode)
+        node = EsenseNode.__new__(EsenseNode)
         store = MagicMock()
         store.read_thread.return_value = []
         store.write_thread.return_value = None
@@ -377,7 +377,7 @@ class TestTypingIndicator:
 
         engine.generate = mock_generate
 
-        with patch("esence.interface.ws.ws_manager") as mock_ws:
+        with patch("esense.interface.ws.ws_manager") as mock_ws:
             mock_ws.broadcast = mock_broadcast
             message = {
                 "thread_id": "order-test",
@@ -386,7 +386,7 @@ class TestTypingIndicator:
                 "type": "thread_message",
                 "status": "pending_human_review",
             }
-            await EsenceNode._handle_inbound(node, message)
+            await EsenseNode._handle_inbound(node, message)
 
         # agent_thinking debe preceder a generate_called
         thinking_idx = call_order.index("agent_thinking")

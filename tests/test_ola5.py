@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from esence.core.identity import Identity
-from esence.interface.server import create_app
+from esense.core.identity import Identity
+from esense.interface.server import create_app
 
 
 # ------------------------------------------------------------------
@@ -22,9 +22,9 @@ from esence.interface.server import create_app
 
 def _make_node(store_dir: Path | None = None):
     """Crea un nodo mock con peers y queue funcionales."""
-    from esence.essence.store import EssenceStore
-    from esence.protocol.peers import PeerManager
-    from esence.core.queue import MessageQueue
+    from esense.essence.store import EssenceStore
+    from esense.protocol.peers import PeerManager
+    from esense.core.queue import MessageQueue
 
     store = EssenceStore(store_dir=store_dir) if store_dir else MagicMock()
     if store_dir:
@@ -198,7 +198,7 @@ class TestApiHealth:
 class TestRateLimit:
     def test_requests_under_limit_return_200_or_valid_code(self, tmp_path):
         """Los primeros 30 requests no deben retornar 429."""
-        from esence.interface import server as server_module
+        from esense.interface import server as server_module
         # Limpiar rate limit
         server_module._rate_limit.clear()
 
@@ -216,7 +216,7 @@ class TestRateLimit:
 
     def test_request_31_returns_429(self, tmp_path):
         """El request 31 dentro de la ventana debe retornar 429."""
-        from esence.interface import server as server_module
+        from esense.interface import server as server_module
         server_module._rate_limit.clear()
 
         node = _make_node(tmp_path)
@@ -243,11 +243,11 @@ class TestTransportSecurity:
     @pytest.mark.asyncio
     async def test_stale_message_returns_invalid(self):
         """Mensaje con timestamp >5min debe retornar valid=False."""
-        from esence.protocol.transport import receive_message
+        from esense.protocol.transport import receive_message
 
         stale_time = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
         payload = {
-            "esence_version": "0.2",
+            "esense_version": "0.2",
             "type": "thread_message",
             "thread_id": "test-thread-id",
             "from_did": "did:wba:other.example.com:bob",
@@ -263,11 +263,11 @@ class TestTransportSecurity:
     @pytest.mark.asyncio
     async def test_invalid_did_returns_invalid(self):
         """Mensaje con DID malformado debe retornar valid=False."""
-        from esence.protocol.transport import receive_message
+        from esense.protocol.transport import receive_message
 
         fresh_time = datetime.now(timezone.utc).isoformat()
         payload = {
-            "esence_version": "0.2",
+            "esense_version": "0.2",
             "type": "thread_message",
             "thread_id": "test-thread-id",
             "from_did": "not-a-valid-did",
@@ -283,7 +283,7 @@ class TestTransportSecurity:
     @pytest.mark.asyncio
     async def test_valid_did_format_passes_validation(self):
         """DID válido no debe ser rechazado por la validación de formato."""
-        from esence.protocol.transport import _DID_RE
+        from esense.protocol.transport import _DID_RE
         valid_dids = [
             "did:wba:example.com:alice",
             "did:wba:localhost:node0",
@@ -296,7 +296,7 @@ class TestTransportSecurity:
     @pytest.mark.asyncio
     async def test_invalid_did_format_fails_validation(self):
         """DIDs inválidos deben fallar la validación de formato."""
-        from esence.protocol.transport import _DID_RE
+        from esense.protocol.transport import _DID_RE
         invalid_dids = [
             "not-a-did",
             "did:key:z6Mk",
@@ -310,11 +310,11 @@ class TestTransportSecurity:
     @pytest.mark.asyncio
     async def test_fresh_message_with_valid_did_passes_security_checks(self):
         """Mensaje fresco con DID válido no debe fallar por seguridad (puede fallar por firma)."""
-        from esence.protocol.transport import receive_message
+        from esense.protocol.transport import receive_message
 
         fresh_time = datetime.now(timezone.utc).isoformat()
         payload = {
-            "esence_version": "0.2",
+            "esense_version": "0.2",
             "type": "thread_message",
             "thread_id": "test-thread-id",
             "from_did": "did:wba:localhost:testnode",
@@ -340,9 +340,9 @@ class TestThreadContinuity:
     @pytest.mark.asyncio
     async def test_handle_inbound_passes_context_to_engine(self, tmp_store):
         """_handle_inbound debe pasar el historial del thread al engine."""
-        from esence.core.node import EsenceNode
+        from esense.core.node import EsenseNode
 
-        node = EsenceNode.__new__(EsenceNode)
+        node = EsenseNode.__new__(EsenseNode)
         node.store = tmp_store
         node.identity = Identity.generate("testnode", "localhost")
         node._running = True
@@ -371,13 +371,13 @@ class TestThreadContinuity:
         node.engine = MagicMock()
         node.engine.generate = fake_generate
 
-        from esence.protocol.peers import PeerManager
+        from esense.protocol.peers import PeerManager
         node.peers = PeerManager(tmp_store)
 
-        from esence.core.queue import MessageQueue
+        from esense.core.queue import MessageQueue
         node.queue = MessageQueue(tmp_store)
 
-        with patch("esence.interface.ws.ws_manager.broadcast", new_callable=AsyncMock):
+        with patch("esense.interface.ws.ws_manager.broadcast", new_callable=AsyncMock):
             await node._handle_inbound({
                 "from_did": "did:wba:other.example.com:bob",
                 "content": "Segundo mensaje del hilo",
@@ -398,9 +398,9 @@ class TestThreadContinuity:
     @pytest.mark.asyncio
     async def test_handle_inbound_empty_thread_passes_empty_context(self, tmp_store):
         """Si el thread es nuevo, context_messages debe ser lista vacía."""
-        from esence.core.node import EsenceNode
+        from esense.core.node import EsenseNode
 
-        node = EsenceNode.__new__(EsenceNode)
+        node = EsenseNode.__new__(EsenseNode)
         node.store = tmp_store
         node.identity = Identity.generate("testnode", "localhost")
         node._running = True
@@ -413,12 +413,12 @@ class TestThreadContinuity:
         node.engine = MagicMock()
         node.engine.generate = fake_generate
 
-        from esence.protocol.peers import PeerManager
+        from esense.protocol.peers import PeerManager
         node.peers = PeerManager(tmp_store)
-        from esence.core.queue import MessageQueue
+        from esense.core.queue import MessageQueue
         node.queue = MessageQueue(tmp_store)
 
-        with patch("esence.interface.ws.ws_manager.broadcast", new_callable=AsyncMock):
+        with patch("esense.interface.ws.ws_manager.broadcast", new_callable=AsyncMock):
             await node._handle_inbound({
                 "from_did": "did:wba:other.example.com:bob",
                 "content": "Primer mensaje en thread nuevo",

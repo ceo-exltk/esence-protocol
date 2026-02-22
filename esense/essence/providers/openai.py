@@ -1,12 +1,12 @@
 """
-esence/essence/providers/openai.py — Provider usando OpenAI API
+esense/essence/providers/openai.py — Provider usando OpenAI API
 """
 from __future__ import annotations
 
 import logging
 from typing import AsyncIterator
 
-from esence.essence.providers.base import BaseProvider, ProviderResponse
+from esense.essence.providers.base import BaseProvider, ProviderResponse
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class OpenAIProvider(BaseProvider):
     def _get_client(self):
         if self._client is None:
             from openai import AsyncOpenAI
-            from esence.config import config
+            from esense.config import config
             self._client = AsyncOpenAI(api_key=config.openai_api_key)
         return self._client
 

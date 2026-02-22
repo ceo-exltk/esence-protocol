@@ -1,5 +1,5 @@
 """
-tests/conftest.py — Fixtures compartidas para el test suite de Esence
+tests/conftest.py — Fixtures compartidas para el test suite de Esense
 """
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from esence.core.identity import Identity
-from esence.essence.store import EssenceStore
+from esense.core.identity import Identity
+from esense.essence.store import EssenceStore
 
 
 @pytest.fixture

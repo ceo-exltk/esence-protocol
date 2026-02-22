@@ -9,9 +9,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 import pytest_asyncio
 
-from esence.core.queue import MessageQueue
-from esence.essence.store import EssenceStore
-from esence.protocol.message import MessageStatus
+from esense.core.queue import MessageQueue
+from esense.essence.store import EssenceStore
+from esense.protocol.message import MessageStatus
 
 
 @pytest.fixture
@@ -21,7 +21,7 @@ def queue(tmp_store: EssenceStore) -> MessageQueue:
 
 def _inbound_msg(thread_id: str = "test-thread", from_did: str = "did:wba:localhost:peer") -> dict:
     return {
-        "esence_version": "0.2",
+        "esense_version": "0.2",
         "type": "thread_message",
         "thread_id": thread_id,
         "from_did": from_did,

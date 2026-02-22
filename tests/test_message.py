@@ -1,5 +1,5 @@
 """
-tests/test_message.py — Tests de modelos Pydantic del protocolo Esence
+tests/test_message.py — Tests de modelos Pydantic del protocolo Esense
 """
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import json
 
 import pytest
 
-from esence.protocol.message import (
-    EsenceMessage,
+from esense.protocol.message import (
+    EsenseMessage,
     MessageStatus,
     MessageType,
     PeerIntro,
@@ -34,7 +34,7 @@ def test_thread_message_defaults():
         to_did="did:wba:localhost:bob",
         content="Hola",
     )
-    assert msg.esence_version == "0.2"
+    assert msg.esense_version == "0.2"
     assert msg.type == MessageType.THREAD_MESSAGE
     assert msg.status == MessageStatus.PENDING_HUMAN_REVIEW
     assert msg.thread_id  # debe tener UUID generado
@@ -92,7 +92,7 @@ def test_parse_message_peer_intro():
 
 
 def test_parse_message_unknown_type_raises():
-    """parse_message() con tipo desconocido lanza ValidationError (EsenceMessage valida el enum)."""
+    """parse_message() con tipo desconocido lanza ValidationError (EsenseMessage valida el enum)."""
     from pydantic import ValidationError
 
     data = _base_dict(type="thread_message")

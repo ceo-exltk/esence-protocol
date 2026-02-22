@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from esence.essence.store import EssenceStore
+from esense.essence.store import EssenceStore
 
 
 def test_initialize_creates_files(tmp_store: EssenceStore):

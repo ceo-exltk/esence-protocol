@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from esence.core.identity import Identity
-from esence.interface.server import create_app
+from esense.core.identity import Identity
+from esense.interface.server import create_app
 
 
 # ------------------------------------------------------------------
@@ -22,29 +22,29 @@ from esence.interface.server import create_app
 
 class TestConfigEffectiveDomain:
     def test_effective_domain_without_public_url(self):
-        from esence.config import Config
+        from esense.config import Config
         with patch.object(Config, "public_url", ""), \
              patch.object(Config, "domain", "localhost"):
             assert Config.effective_domain() == "localhost"
 
     def test_effective_domain_with_public_url(self):
-        from esence.config import Config
+        from esense.config import Config
         with patch.object(Config, "public_url", "https://abc123.ngrok.io"):
             assert Config.effective_domain() == "abc123.ngrok.io"
 
     def test_effective_domain_strips_path_from_url(self):
-        from esence.config import Config
+        from esense.config import Config
         with patch.object(Config, "public_url", "https://mi-nodo.example.com/extra"):
             assert Config.effective_domain() == "mi-nodo.example.com"
 
     def test_did_uses_effective_domain_when_public_url_set(self):
-        from esence.config import Config
+        from esense.config import Config
         with patch.object(Config, "public_url", "https://abc123.ngrok.io"), \
              patch.object(Config, "node_name", "node0"):
             assert Config.did() == "did:wba:abc123.ngrok.io:node0"
 
     def test_did_uses_local_domain_without_public_url(self):
-        from esence.config import Config
+        from esense.config import Config
         with patch.object(Config, "public_url", ""), \
              patch.object(Config, "domain", "localhost"), \
              patch.object(Config, "node_name", "node0"), \
@@ -53,19 +53,19 @@ class TestConfigEffectiveDomain:
             assert Config.did() == "did:wba:localhost%3A7777:node0"
 
     def test_did_document_url_with_public_url(self):
-        from esence.config import Config
+        from esense.config import Config
         with patch.object(Config, "public_url", "https://abc123.ngrok.io"):
             url = Config.did_document_url()
             assert url == "https://abc123.ngrok.io/.well-known/did.json"
 
     def test_did_document_url_with_trailing_slash_in_public_url(self):
-        from esence.config import Config
+        from esense.config import Config
         with patch.object(Config, "public_url", "https://abc123.ngrok.io/"):
             url = Config.did_document_url()
             assert url == "https://abc123.ngrok.io/.well-known/did.json"
 
     def test_did_document_url_localhost_uses_http_and_port(self):
-        from esence.config import Config
+        from esense.config import Config
         with patch.object(Config, "public_url", ""), \
              patch.object(Config, "domain", "localhost"), \
              patch.object(Config, "port", 7777):
@@ -73,7 +73,7 @@ class TestConfigEffectiveDomain:
             assert url == "http://localhost:7777/.well-known/did.json"
 
     def test_did_document_url_real_domain_uses_https_no_port(self):
-        from esence.config import Config
+        from esense.config import Config
         with patch.object(Config, "public_url", ""), \
              patch.object(Config, "domain", "mi-nodo.example.com"):
             url = Config.did_document_url()
@@ -147,7 +147,7 @@ class TestApiSendEndpoint:
         node = MagicMock()
         node.identity = Identity.generate("testnode", "localhost")
         app = create_app(node=node)
-        with patch("esence.protocol.transport.send_message", new_callable=AsyncMock, return_value=True):
+        with patch("esense.protocol.transport.send_message", new_callable=AsyncMock, return_value=True):
             client = TestClient(app, raise_server_exceptions=True)
             resp = client.post("/api/send", json={
                 "to_did": "did:wba:other.example.com:bob",
@@ -160,7 +160,7 @@ class TestApiSendEndpoint:
         node = MagicMock()
         node.identity = Identity.generate("testnode", "localhost")
         app = create_app(node=node)
-        with patch("esence.protocol.transport.send_message", new_callable=AsyncMock, return_value=False):
+        with patch("esense.protocol.transport.send_message", new_callable=AsyncMock, return_value=False):
             client = TestClient(app, raise_server_exceptions=True)
             resp = client.post("/api/send", json={
                 "to_did": "did:wba:other.example.com:bob",
@@ -205,7 +205,7 @@ class TestApiSendEndpoint:
             captured["from_did"] = msg.from_did
             return True
 
-        with patch("esence.protocol.transport.send_message", side_effect=fake_send):
+        with patch("esense.protocol.transport.send_message", side_effect=fake_send):
             client = TestClient(app, raise_server_exceptions=True)
             client.post("/api/send", json={
                 "to_did": "did:wba:other.example.com:bob",

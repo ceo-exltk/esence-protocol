@@ -1,5 +1,5 @@
 """
-esence/essence/maturity.py — Calcula el essence_maturity score (0.0 – 1.0)
+esense/essence/maturity.py — Calcula el essence_maturity score (0.0 – 1.0)
 
 El score refleja cuánto ha "aprendido" el agente sobre su dueño:
 - Cantidad de correcciones en corrections.log
@@ -11,8 +11,8 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
-from esence.config import config
-from esence.essence.store import EssenceStore
+from esense.config import config
+from esense.essence.store import EssenceStore
 
 
 def _sigmoid_score(value: float, midpoint: float) -> float:

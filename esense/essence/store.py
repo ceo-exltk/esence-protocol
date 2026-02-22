@@ -1,5 +1,5 @@
 """
-esence/essence/store.py — Leer/escribir el essence store (archivos locales)
+esense/essence/store.py — Leer/escribir el essence store (archivos locales)
 """
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from esence.config import config
+from esense.config import config
 
 
 class EssenceStore:

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from esence.core.identity import Identity
+from esense.core.identity import Identity
 
 
 def test_generate_creates_valid_did():
@@ -17,7 +17,7 @@ def test_generate_creates_valid_did():
 
 def test_sign_and_verify():
     identity = Identity.generate("alice", "example.com")
-    data = b"esence:test:payload"
+    data = b"esense:test:payload"
     sig = identity.sign(data)
     assert isinstance(sig, str)
     assert identity.verify(data, sig)

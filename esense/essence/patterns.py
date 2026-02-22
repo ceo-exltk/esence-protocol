@@ -1,5 +1,5 @@
 """
-esence/essence/patterns.py — Extracción automática de patrones desde corrections.log
+esense/essence/patterns.py — Extracción automática de patrones desde corrections.log
 """
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from esence.essence.engine import EssenceEngine
-    from esence.essence.store import EssenceStore
+    from esense.essence.engine import EssenceEngine
+    from esense.essence.store import EssenceStore
 
 logger = logging.getLogger(__name__)
 

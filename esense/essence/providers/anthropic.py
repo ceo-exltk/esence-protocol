@@ -1,12 +1,12 @@
 """
-esence/essence/providers/anthropic.py — Provider usando Anthropic API
+esense/essence/providers/anthropic.py — Provider usando Anthropic API
 """
 from __future__ import annotations
 
 import logging
 from typing import AsyncIterator
 
-from esence.essence.providers.base import BaseProvider, ProviderResponse
+from esense.essence.providers.base import BaseProvider, ProviderResponse
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class AnthropicProvider(BaseProvider):
     def _get_client(self):
         if self._client is None:
             import anthropic
-            from esence.config import config
+            from esense.config import config
             self._client = anthropic.AsyncAnthropic(api_key=config.anthropic_api_key)
         return self._client
 

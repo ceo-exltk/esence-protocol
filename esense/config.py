@@ -1,5 +1,5 @@
 """
-esence/config.py — Configuración del nodo cargada desde .env
+esense/config.py — Configuración del nodo cargada desde .env
 """
 from __future__ import annotations
 
@@ -14,25 +14,25 @@ load_dotenv(_ROOT / ".env")
 
 
 class Config:
-    """Settings del nodo Esence. Todos los valores vienen de variables de entorno."""
+    """Settings del nodo Esense. Todos los valores vienen de variables de entorno."""
 
     # AI provider (anthropic | claude_code | ollama | openai)
-    provider: str = os.getenv("ESENCE_PROVIDER", "auto")
+    provider: str = os.getenv("ESENSE_PROVIDER", "auto")
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
 
     # Identidad del nodo
-    node_name: str = os.getenv("ESENCE_NODE_NAME", "node0")
-    domain: str = os.getenv("ESENCE_DOMAIN", "localhost")
+    node_name: str = os.getenv("ESENSE_NODE_NAME", "node0")
+    domain: str = os.getenv("ESENSE_DOMAIN", "localhost")
 
     # Red
-    donation_pct: int = int(os.getenv("ESENCE_DONATION_PCT", "10"))
-    port: int = int(os.getenv("ESENCE_PORT", "7777"))
-    bootstrap_peer: str = os.getenv("ESENCE_BOOTSTRAP_PEER", "")
-    public_url: str = os.getenv("ESENCE_PUBLIC_URL", "")  # ej: "https://abc123.ngrok.io"
+    donation_pct: int = int(os.getenv("ESENSE_DONATION_PCT", "10"))
+    port: int = int(os.getenv("ESENSE_PORT", "7777"))
+    bootstrap_peer: str = os.getenv("ESENSE_BOOTSTRAP_PEER", "")
+    public_url: str = os.getenv("ESENSE_PUBLIC_URL", "")  # ej: "https://abc123.ngrok.io"
 
     # Dev
-    dev_skip_sig: bool = os.getenv("ESENCE_SKIP_SIG_VERIFY", "").lower() in ("1", "true", "yes")
+    dev_skip_sig: bool = os.getenv("ESENSE_SKIP_SIG_VERIFY", "").lower() in ("1", "true", "yes")
 
     # Paths
     root_dir: Path = _ROOT
@@ -79,7 +79,7 @@ class Config:
         """Retorna lista de errores de configuración."""
         errors = []
         if not cls.node_name or cls.node_name == "yourname":
-            errors.append("ESENCE_NODE_NAME no configurado")
+            errors.append("ESENSE_NODE_NAME no configurado")
         if cls.provider == "anthropic" and not cls.anthropic_api_key:
             errors.append("ANTHROPIC_API_KEY no configurado")
         if cls.provider == "openai" and not cls.openai_api_key:

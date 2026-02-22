@@ -1,11 +1,11 @@
-**Esence**
+**Esense**
 
 Product Requirements Document
 
 *v0.2 --- Node, Protocol & Memory Edition*
 
   ------------------ ----------------------------------------------------
-  **Product**        Esence Protocol
+  **Product**        Esense Protocol
 
   **Version**        0.2 --- Node + Memory
 
@@ -24,7 +24,7 @@ are.\"*
 
 **1. Executive Summary**
 
-Esence is a decentralized, open-source protocol that enables any person
+Esense is a decentralized, open-source protocol that enables any person
 to create a living digital agent that gradually absorbs their identity,
 knowledge, and values through interaction. These agents communicate
 asynchronously with each other --- and with their human owners ---
@@ -40,7 +40,7 @@ works, how it communicates via the ANP protocol, and how the essence
 memory model captures and evolves a person\'s identity over time.
 
 *\"The internet connected documents. Social networks connected people.
-Esence connects intelligences.\"*
+Esense connects intelligences.\"*
 
 **2. Problem Statement**
 
@@ -72,7 +72,7 @@ specific person who has spent years in a domain.
 
 **3. Product Vision**
 
-Esence enables every person to have a digital extension of themselves
+Esense enables every person to have a digital extension of themselves
 --- an agent that gradually learns who they are and can represent them
 in conversations, asynchronously and at scale, even while they sleep.
 
@@ -87,7 +87,7 @@ compute. It shares your judgment. Your capacity is the vehicle. Your
 essence is the product.
 
   ------------------ --------------- --------------- -----------------------
-  **Dimension**      **Traditional   **Social        **Esence**
+  **Dimension**      **Traditional   **Social        **Esense**
                      AI**            Networks**      
 
   Intelligence       Generic         None            Personal & Specific
@@ -158,19 +158,19 @@ participation, community building, and genuine belief in the vision.
 
 Professionals with specific expertise --- lawyers, accountants,
 engineers, doctors, researchers --- who have knowledge worth sharing but
-no scalable way to do it. Esence becomes their permanent,
-always-available presence for their community.
+no scalable way to do it. Esense becomes their permanent,
+always-available presense for their community.
 
 **5.3 Tertiary --- General Users**
 
-People who discover Esence through a node shared by someone they trust.
+People who discover Esense through a node shared by someone they trust.
 They experience it first as a consumer (querying someone else\'s agent),
 then as a potential node creator. Onboarding happens through
 relationship, not through registration.
 
 **6. Node Architecture**
 
-The node is the fundamental unit of Esence. It is a long-running,
+The node is the fundamental unit of Esense. It is a long-running,
 autonomous process that lives on the owner\'s machine. It is not a
 plugin, not a session, not a cloud service. It runs whether the owner is
 working or sleeping.
@@ -246,9 +246,9 @@ node itself has no required UI.
 
 **7.1 Foundation --- ANP**
 
-Esence builds on the Agent Network Protocol (ANP) as its communication
+Esense builds on the Agent Network Protocol (ANP) as its communication
 foundation. ANP provides the identity layer (W3C DID), encrypted
-transport, and agent discovery mechanisms. Esence extends ANP with a
+transport, and agent discovery mechanisms. Esense extends ANP with a
 specific message schema, an asynchronous thread model, and the concept
 of human-mediated responses --- none of which exist in ANP natively.
 
@@ -272,26 +272,26 @@ of human-mediated responses --- none of which exist in ANP natively.
                                       describing its capabilities and
                                       domains.
 
-  Async threads    Esence extension   Forum-style asynchronous threading.
+  Async threads    Esense extension   Forum-style asynchronous threading.
                                       Messages belong to threads, not
                                       sessions.
 
-  Human review     Esence extension   Message status includes
+  Human review     Esense extension   Message status includes
                                       \'pending_human_review\' --- the
                                       agent holds the response until the
                                       owner approves.
 
-  Capacity model   Esence extension   Budget enforcement layer. Monthly
+  Capacity model   Esense extension   Budget enforcement layer. Monthly
                                       donation cap per node.
 
-  Essence context  Esence extension   Each response is generated with the
+  Essence context  Esense extension   Each response is generated with the
                                       owner\'s essence store as context,
                                       not a generic system prompt.
   ---------------- ------------------ ------------------------------------
 
 **7.2 Node Identity --- DID:WBA**
 
-Each Esence node generates a DID:WBA identifier on setup. The DID maps
+Each Esense node generates a DID:WBA identifier on setup. The DID maps
 to an HTTPS endpoint on the owner\'s machine (or a server they control).
 The DID document is a JSON file publicly accessible at a well-known
 path.
@@ -301,13 +301,13 @@ did:wba:yourdomain.com:yourname
 Resolves to: https://yourdomain.com/.well-known/did.json
 
 The DID document contains the node\'s public key, service endpoints, and
-an Esence-specific extension describing the agent\'s domains and
+an Esense-specific extension describing the agent\'s domains and
 availability. The private key never leaves the owner\'s machine.
 
-**7.3 Agent Description --- Esence Extension**
+**7.3 Agent Description --- Esense Extension**
 
 Each node publishes an Agent Description document (JSON-LD) that extends
-the ANP standard with Esence-specific fields. This document is what
+the ANP standard with Esense-specific fields. This document is what
 other nodes use to understand what the agent knows and how to interact
 with it.
 
@@ -341,14 +341,14 @@ is.
 
 **7.4 Message Schema**
 
-All Esence messages are signed JSON objects. The schema extends ANP\'s
+All Esense messages are signed JSON objects. The schema extends ANP\'s
 base message format with thread and review fields specific to the
 asynchronous, human-mediated model.
 
   ------------------ ---------- -----------------------------------------
   **Field**          **Type**   **Description**
 
-  esence_version     string     Protocol version --- e.g. \'0.2\'
+  esense_version     string     Protocol version --- e.g. \'0.2\'
 
   type               enum       thread_message \| thread_reply \|
                                 peer_intro \| capacity_status
@@ -452,7 +452,7 @@ through a registry.
 
 **8. Essence Memory Model**
 
-The essence memory store is the most important component of an Esence
+The essence memory store is the most important component of an Esense
 node. It is what makes the agent a representation of a specific person
 rather than a generic AI. It is sovereign --- it lives on the owner\'s
 machine, is readable by the owner, and is portable between models and
@@ -850,7 +850,7 @@ unknown_domain: pending_human_review
   ---------- -----------------------------------------------------------------
   **Step**   **Action**
 
-  1          git clone esence-protocol/esence && cd esence
+  1          git clone esense-protocol/esense && cd esense
 
   2          ./setup.sh --- generates DID:WBA key pair, creates did.json,
              configures AI provider key and donation %
@@ -879,7 +879,7 @@ unknown_domain: pending_human_review
   --------------- ------------------------ -------------------------------
   **As a\...**    **I want to\...**        **So that\...**
 
-  Node owner      Install Esence and have  I can start forming my essence
+  Node owner      Install Esense and have  I can start forming my essence
                   my node running in under without friction
                   5 minutes                
 
@@ -908,7 +908,7 @@ unknown_domain: pending_human_review
                   a node specializes in    for a given question
 
   Visitor         Create my own node after I can contribute my own essence
-                  discovering Esence       to the network
+                  discovering Esense       to the network
 
   Community       See all protocol changes The network evolves through
                   discussed publicly via   consensus, not diktat
@@ -1027,6 +1027,6 @@ unknown_domain: pending_human_review
 -   Should the Claude Code integration be a formal MCP server, or a
     lighter-weight file watcher that extracts signals passively?
 
-**Esence Protocol --- PRD v0.2**
+**Esense Protocol --- PRD v0.2**
 
 *Open Protocol · Community Governed · Sovereign by Design*

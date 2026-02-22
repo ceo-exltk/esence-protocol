@@ -1,5 +1,5 @@
 """
-esence/protocol/peers.py — Gestión de peers conocidos, trust scoring y gossip básico
+esense/protocol/peers.py — Gestión de peers conocidos, trust scoring y gossip básico
 """
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from esence.essence.store import EssenceStore
+from esense.essence.store import EssenceStore
 
 logger = logging.getLogger(__name__)
 

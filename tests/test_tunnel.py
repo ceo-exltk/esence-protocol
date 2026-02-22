@@ -7,12 +7,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from esence.core.node import EsenceNode
+from esense.core.node import EsenseNode
 
 
 @pytest.fixture
 def node(tmp_store):
-    n = EsenceNode()
+    n = EsenseNode()
     n.store = tmp_store
     return n
 
@@ -122,7 +122,7 @@ class TestStartNgrok:
 class TestAutoConfigureInStart:
     @pytest.mark.asyncio
     async def test_config_public_url_updated_when_tunnel_found(self, node, tmp_path):
-        from esence.config import Config
+        from esense.config import Config
 
         original_url = Config.public_url
         Config.public_url = ""  # asegurar sin URL previa
@@ -136,9 +136,9 @@ class TestAutoConfigureInStart:
                  patch.object(node, "_process_inbound_loop", AsyncMock()), \
                  patch.object(node, "_process_outbound_loop", AsyncMock()), \
                  patch.object(node, "_gossip_loop", AsyncMock()), \
-                 patch("esence.core.node.config.essence_store_dir", tmp_path), \
-                 patch("esence.core.identity.Identity.load_or_generate") as mock_id, \
-                 patch("esence.core.node.config.validate", return_value=[]):
+                 patch("esense.core.node.config.essence_store_dir", tmp_path), \
+                 patch("esense.core.identity.Identity.load_or_generate") as mock_id, \
+                 patch("esense.core.node.config.validate", return_value=[]):
                 mock_identity = MagicMock()
                 mock_identity.did = "did:wba:auto.ngrok-free.app:node0"
                 mock_id.return_value = mock_identity

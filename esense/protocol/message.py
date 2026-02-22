@@ -1,5 +1,5 @@
 """
-esence/protocol/message.py — Modelos Pydantic v2 para el protocolo Esence over ANP
+esense/protocol/message.py — Modelos Pydantic v2 para el protocolo Esense over ANP
 """
 from __future__ import annotations
 
@@ -35,10 +35,10 @@ def _new_uuid() -> str:
     return str(uuid.uuid4())
 
 
-class EsenceMessage(BaseModel):
-    """Mensaje base del protocolo Esence v0.2."""
+class EsenseMessage(BaseModel):
+    """Mensaje base del protocolo Esense v0.2."""
 
-    esence_version: str = "0.2"
+    esense_version: str = "0.2"
     type: MessageType
     thread_id: str = Field(default_factory=_new_uuid)
     from_did: str
@@ -59,7 +59,7 @@ class EsenceMessage(BaseModel):
         return json.dumps(data, sort_keys=True, ensure_ascii=False).encode()
 
 
-class ThreadMessage(EsenceMessage):
+class ThreadMessage(EsenseMessage):
     """Mensaje que inicia un hilo de conversación entre nodos."""
 
     type: Literal[MessageType.THREAD_MESSAGE] = MessageType.THREAD_MESSAGE
@@ -68,7 +68,7 @@ class ThreadMessage(EsenceMessage):
     model_config = {"use_enum_values": True}
 
 
-class ThreadReply(EsenceMessage):
+class ThreadReply(EsenseMessage):
     """Respuesta dentro de un hilo existente."""
 
     type: Literal[MessageType.THREAD_REPLY] = MessageType.THREAD_REPLY
@@ -77,7 +77,7 @@ class ThreadReply(EsenceMessage):
     model_config = {"use_enum_values": True}
 
 
-class PeerIntro(EsenceMessage):
+class PeerIntro(EsenseMessage):
     """Introducción entre nodos — intercambio de identidad y peer list."""
 
     type: Literal[MessageType.PEER_INTRO] = MessageType.PEER_INTRO
@@ -87,7 +87,7 @@ class PeerIntro(EsenceMessage):
     model_config = {"use_enum_values": True}
 
 
-class CapacityStatus(EsenceMessage):
+class CapacityStatus(EsenseMessage):
     """Estado de capacidad del nodo — para coordinación de la red."""
 
     type: Literal[MessageType.CAPACITY_STATUS] = MessageType.CAPACITY_STATUS
@@ -102,7 +102,7 @@ class CapacityStatus(EsenceMessage):
         return max(0.0, min(100.0, v))
 
 
-def parse_message(data: dict[str, Any]) -> EsenceMessage:
+def parse_message(data: dict[str, Any]) -> EsenseMessage:
     """Parsea un dict a la subclase correcta según el campo type."""
     msg_type = data.get("type")
     mapping = {
@@ -111,5 +111,5 @@ def parse_message(data: dict[str, Any]) -> EsenceMessage:
         MessageType.PEER_INTRO: PeerIntro,
         MessageType.CAPACITY_STATUS: CapacityStatus,
     }
-    cls = mapping.get(msg_type, EsenceMessage)
+    cls = mapping.get(msg_type, EsenseMessage)
     return cls.model_validate(data)

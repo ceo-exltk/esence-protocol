@@ -1,5 +1,5 @@
 """
-esence/core/queue.py — Cola asyncio inbound/outbound con persistencia en threads/
+esense/core/queue.py — Cola asyncio inbound/outbound con persistencia en threads/
 """
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Awaitable
 
-from esence.config import config
-from esence.essence.store import EssenceStore
-from esence.protocol.message import EsenceMessage, MessageStatus
+from esense.config import config
+from esense.essence.store import EssenceStore
+from esense.protocol.message import EsenseMessage, MessageStatus
 
 
 class MessageQueue:
@@ -51,7 +51,7 @@ class MessageQueue:
 
     async def enqueue_inbound(self, message: dict[str, Any]) -> None:
         """Recibe un mensaje entrante. El mood de disponibilidad define el routing."""
-        from esence.essence.maturity import calculate_maturity
+        from esense.essence.maturity import calculate_maturity
 
         thread_id = message.get("thread_id", str(uuid.uuid4()))
         message["thread_id"] = thread_id

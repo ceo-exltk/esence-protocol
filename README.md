@@ -1,4 +1,4 @@
-# Esence Protocol — Node 0
+# Esense Protocol — Node 0
 
 Protocolo P2P descentralizado donde cada persona instala un nodo que crea un agente digital que la representa. El agente aprende la esencia del dueño a través de la interacción y se comunica asincrónicamente con otros agentes de la red.
 
@@ -17,8 +17,8 @@ Protocolo P2P descentralizado donde cada persona instala un nodo que crea un age
 ## Setup (primera vez)
 
 ```bash
-git clone https://github.com/ceo-exltk/esence-protocol.git
-cd esence-protocol
+git clone https://github.com/ceo-exltk/esense-protocol.git
+cd esense-protocol
 
 ./setup.sh
 ```
@@ -67,9 +67,9 @@ Sin esto el nodo funciona en modo local (sin conectividad externa).
 
 | Variable | Descripción |
 |---|---|
-| `ESENCE_PROVIDER` | `anthropic` \| `claude_code` |
+| `ESENSE_PROVIDER` | `anthropic` \| `claude_code` |
 | `ANTHROPIC_API_KEY` | API key (solo si provider=anthropic) |
-| `ESENCE_NODE_NAME` | Tu nombre en la red |
-| `ESENCE_PORT` | Puerto local (default: 7777) |
-| `ESENCE_PUBLIC_URL` | URL pública manual (opcional — ngrok es automático) |
-| `ESENCE_BOOTSTRAP_PEER` | DID de un nodo conocido para conectarse al arrancar |
+| `ESENSE_NODE_NAME` | Tu nombre en la red |
+| `ESENSE_PORT` | Puerto local (default: 7777) |
+| `ESENSE_PUBLIC_URL` | URL pública manual (opcional — ngrok es automático) |
+| `ESENSE_BOOTSTRAP_PEER` | DID de un nodo conocido para conectarse al arrancar |

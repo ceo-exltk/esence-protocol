@@ -1,5 +1,5 @@
 """
-esence/essence/providers/base.py — Interface base para AI providers
+esense/essence/providers/base.py — Interface base para AI providers
 """
 from __future__ import annotations
 
