@@ -5,6 +5,9 @@ from __future__ import annotations
 
 import json
 import logging
+import time
+import urllib.parse
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
 
@@ -21,6 +24,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "static"
+
+# Rate limiting — in-memory por IP
+_rate_limit: dict[str, list[float]] = defaultdict(list)
+_RATE_WINDOW = 60   # segundos
+_RATE_MAX = 30      # mensajes por ventana por IP
 
 
 def create_app(node: "EsenceNode | None" = None) -> FastAPI:
@@ -45,6 +53,14 @@ def create_app(node: "EsenceNode | None" = None) -> FastAPI:
     async def receive_anp_message(request: Request) -> JSONResponse:
         """Recibe un mensaje ANP de otro nodo."""
         from esence.protocol.transport import receive_message
+
+        # Rate limiting por IP
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.time()
+        _rate_limit[client_ip] = [t for t in _rate_limit[client_ip] if now - t < _RATE_WINDOW]
+        if len(_rate_limit[client_ip]) >= _RATE_MAX:
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
+        _rate_limit[client_ip].append(now)
 
         try:
             payload = await request.json()
@@ -155,6 +171,114 @@ def create_app(node: "EsenceNode | None" = None) -> FastAPI:
         )
         success = await send_message(msg, node.identity)
         return JSONResponse({"status": "sent" if success else "failed"})
+
+    @app.get("/api/peers")
+    async def get_peers() -> JSONResponse:
+        """Lista de peers conocidos."""
+        if not node:
+            return JSONResponse([])
+        return JSONResponse(node.peers.get_all())
+
+    @app.post("/api/peers")
+    async def add_peer(request: Request) -> JSONResponse:
+        """Agrega un peer por DID."""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="JSON inválido")
+        did = body.get("did")
+        if not did:
+            raise HTTPException(status_code=400, detail="did requerido")
+        peer = node.peers.add_or_update(did, trust_score=0.3)
+        return JSONResponse({"status": "ok", "peer": peer})
+
+    @app.delete("/api/peers/{did:path}")
+    async def delete_peer(did: str) -> JSONResponse:
+        """Elimina un peer por DID."""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        decoded_did = urllib.parse.unquote(did)
+        node.peers.remove(decoded_did)
+        return JSONResponse({"status": "ok", "did": decoded_did})
+
+    @app.get("/api/health")
+    async def health() -> JSONResponse:
+        """Estado de salud del nodo."""
+        if not node:
+            return JSONResponse({"status": "initializing"}, status_code=503)
+        from esence.essence.maturity import calculate_maturity
+        over_budget = node.store.is_over_budget()
+        budget = node.store.read_budget()
+        peers = node.peers.get_all()
+        last_activity = max(
+            (p.get("last_seen", "") or "" for p in peers),
+            default=None,
+        ) or None
+        return JSONResponse({
+            "status": "healthy" if not over_budget else "degraded",
+            "did": node.identity.did if node.identity else config.did(),
+            "peer_count": node.peers.peer_count(),
+            "pending_count": node.queue.pending_count(),
+            "maturity": calculate_maturity(node.store),
+            "budget": {
+                "used_tokens": budget.get("used_tokens", 0),
+                "monthly_limit_tokens": budget.get("monthly_limit_tokens", 500_000),
+                "over_budget": over_budget,
+            },
+            "last_peer_activity": last_activity,
+            "public_url": config.public_url or None,
+            "version": "0.2.0",
+        })
+
+    @app.get("/api/threads")
+    async def list_threads() -> JSONResponse:
+        """Lista de threads recientes con metadata."""
+        if not node:
+            return JSONResponse([])
+        return JSONResponse(node.get_recent_threads(limit=20))
+
+    @app.get("/api/threads/{thread_id}")
+    async def get_thread(thread_id: str) -> JSONResponse:
+        """Mensajes completos de un thread."""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        messages = node.store.read_thread(thread_id)
+        if not messages:
+            raise HTTPException(status_code=404, detail="Thread no encontrado")
+        return JSONResponse(messages)
+
+    @app.get("/api/context")
+    async def get_context() -> JSONResponse:
+        """Retorna el contenido de context.md."""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        content = node.store.read_context()
+        return JSONResponse({"content": content})
+
+    @app.post("/api/context")
+    async def save_context(request: Request) -> JSONResponse:
+        """Actualiza context.md."""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="JSON inválido")
+        content = body.get("content")
+        if content is None:
+            raise HTTPException(status_code=400, detail="content requerido")
+        node.store.write_context(content)
+        return JSONResponse({"status": "ok"})
+
+    @app.get("/api/patterns")
+    async def get_patterns() -> JSONResponse:
+        """Retorna los patrones extraídos."""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        patterns = node.store.read_patterns()
+        return JSONResponse(patterns)
 
     @app.post("/api/reject/{thread_id}")
     async def reject_message(thread_id: str) -> JSONResponse:

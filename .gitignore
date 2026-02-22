@@ -4,6 +4,9 @@ essence-store/
 *.key
 *.pem
 
+# Claude Code local settings (permisos locales, no compartir)
+.claude/settings.local.json
+
 # Python
 __pycache__/
 *.pyc

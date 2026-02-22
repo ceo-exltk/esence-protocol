@@ -47,8 +47,10 @@ class TestConfigEffectiveDomain:
         from esence.config import Config
         with patch.object(Config, "public_url", ""), \
              patch.object(Config, "domain", "localhost"), \
-             patch.object(Config, "node_name", "node0"):
-            assert Config.did() == "did:wba:localhost:node0"
+             patch.object(Config, "node_name", "node0"), \
+             patch.object(Config, "port", 7777):
+            # Para localhost el DID incluye el puerto URL-encoded
+            assert Config.did() == "did:wba:localhost%3A7777:node0"
 
     def test_did_document_url_with_public_url(self):
         from esence.config import Config

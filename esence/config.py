@@ -47,8 +47,21 @@ class Config:
         return cls.domain
 
     @classmethod
+    def effective_did_domain(cls) -> str:
+        """Dominio para usar en DIDs.
+        Para localhost incluye el puerto URL-encoded (ej: localhost%3A7777)
+        para que resolve_did pueda construir la URL correcta."""
+        if cls.public_url:
+            from urllib.parse import urlparse
+            return urlparse(cls.public_url).netloc
+        is_local = cls.domain.startswith("localhost") or cls.domain.startswith("127.")
+        if is_local:
+            return f"{cls.domain}%3A{cls.port}"
+        return cls.domain
+
+    @classmethod
     def did(cls) -> str:
-        return f"did:wba:{cls.effective_domain()}:{cls.node_name}"
+        return f"did:wba:{cls.effective_did_domain()}:{cls.node_name}"
 
     @classmethod
     def did_document_url(cls) -> str:

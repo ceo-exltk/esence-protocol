@@ -32,6 +32,10 @@ class WSManager:
         logger.info(f"WS connected ({len(self._connections)} total)")
         # Enviar estado inicial
         await self._send_to(ws, "node_state", await self._build_state())
+        # Enviar threads recientes para poblar el feed
+        if self._node:
+            recent = self._node.get_recent_threads(limit=20)
+            await self._send_to(ws, "thread_history", {"threads": recent})
 
     def disconnect(self, ws: WebSocket) -> None:
         if ws in self._connections:

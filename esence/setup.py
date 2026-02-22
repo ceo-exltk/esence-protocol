@@ -74,10 +74,21 @@ def run_setup() -> None:
         "Puerto de la interfaz",
         existing_env.get("ESENCE_PORT", "7777"),
     )
-    api_key = _prompt(
-        "Anthropic API key",
-        existing_env.get("ANTHROPIC_API_KEY", ""),
-    )
+    print()
+    print("  Provider AI")
+    print("    1) anthropic  — requiere ANTHROPIC_API_KEY")
+    print("    2) claude_code — usa el CLI de Claude Code (sin API key)")
+    provider_choice = _prompt("Elegí provider (1/2)", "1")
+    if provider_choice == "2":
+        provider = "claude_code"
+        api_key = ""
+    else:
+        provider = "anthropic"
+        api_key = _prompt(
+            "Anthropic API key",
+            existing_env.get("ANTHROPIC_API_KEY", ""),
+        )
+    print()
     donation_pct = _prompt(
         "% de capacidad a compartir con la red",
         existing_env.get("ESENCE_DONATION_PCT", "10"),
@@ -91,7 +102,7 @@ def run_setup() -> None:
     env_content = f"""# Esence Node Configuration
 # Generado por esence/setup.py — {datetime.now(timezone.utc).isoformat()}
 
-ESENCE_PROVIDER=anthropic
+ESENCE_PROVIDER={provider}
 ANTHROPIC_API_KEY={api_key}
 
 ESENCE_NODE_NAME={node_name}
@@ -122,12 +133,18 @@ ESENCE_PUBLIC_URL={public_url}
 
     store_dir = root / "essence-store"
 
+    # Para localhost incluir el puerto en el DID (URL-encoded) para que
+    # otros nodos puedan resolver el DID document correctamente.
+    port_int = int(port)
+    is_local = domain.startswith("localhost") or domain.startswith("127.")
+    did_domain = f"{domain}%3A{port_int}" if is_local else domain
+
     if (store_dir / "keys" / "private.pem").exists():
         print(f"  ✓ Identidad existente encontrada — se mantiene")
         identity = Identity.load(store_dir)
     else:
         print(f"  Generando par de claves Ed25519...")
-        identity = Identity.generate(node_name, domain)
+        identity = Identity.generate(node_name, did_domain)
         identity.save(store_dir)
         print(f"  ✓ Keys generadas y guardadas en essence-store/keys/")
 
@@ -141,8 +158,8 @@ ESENCE_PUBLIC_URL={public_url}
     identity_data = {
         "id": identity.did,
         "name": node_name,
-        "domain": domain,
-        "port": int(port),
+        "domain": did_domain,
+        "port": port_int,
         "languages": ["es"],
         "values": [],
         "created_at": datetime.now(timezone.utc).isoformat(),

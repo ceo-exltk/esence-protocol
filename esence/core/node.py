@@ -13,7 +13,7 @@ from typing import Any
 
 import uvicorn
 
-from esence.config import config
+from esence.config import Config, config
 from esence.core.identity import Identity
 from esence.core.queue import MessageQueue
 from esence.essence.engine import EssenceEngine
@@ -46,6 +46,47 @@ class EsenceNode:
     # Arranque
     # ------------------------------------------------------------------
 
+    async def _detect_ngrok_tunnel(self) -> str | None:
+        """Detecta si ngrok está corriendo y retorna la URL HTTPS del tunnel."""
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as client:
+                resp = await client.get("http://localhost:4040/api/tunnels")
+                if resp.status_code != 200:
+                    return None
+                for t in resp.json().get("tunnels", []):
+                    if t.get("proto") == "https":
+                        addr = t.get("config", {}).get("addr", "")
+                        if str(config.port) in addr:
+                            return t["public_url"]
+        except Exception:
+            pass
+        return None
+
+    async def _start_ngrok(self) -> str | None:
+        """Lanza ngrok en background y retorna la URL pública (máx 10s espera)."""
+        import shutil
+        import subprocess
+        if not shutil.which("ngrok"):
+            return None
+        logger.info("Iniciando ngrok...")
+        try:
+            subprocess.Popen(
+                ["ngrok", "http", str(config.port)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception as e:
+            logger.warning(f"ngrok no pudo iniciarse: {e}")
+            return None
+        for _ in range(20):          # polling cada 0.5s, máx 10s
+            await asyncio.sleep(0.5)
+            url = await self._detect_ngrok_tunnel()
+            if url:
+                return url
+        logger.warning("ngrok lanzado pero tunnel no respondió en 10s")
+        return None
+
     async def start(self) -> None:
         """Inicializa el nodo y arranca todos los loops."""
         logger.info(f"Arrancando Esence Node — {config.did()}")
@@ -55,6 +96,16 @@ class EsenceNode:
         if errors:
             for e in errors:
                 logger.warning(f"Config: {e}")
+
+        # Auto-configurar URL pública via ngrok si no está seteada en .env
+        if not config.public_url:
+            logger.info("Buscando tunnel público...")
+            url = await self._detect_ngrok_tunnel() or await self._start_ngrok()
+            if url:
+                Config.public_url = url      # actualiza class attr → effective_did_domain() lo ve
+                logger.info(f"Tunnel activo: {url}")
+            else:
+                logger.info(f"Modo local — para conectar con otros nodos: ngrok http {config.port}")
 
         # Cargar identidad
         if not config.essence_store_dir.exists():
@@ -66,16 +117,13 @@ class EsenceNode:
         self.identity = Identity.load_or_generate()
         logger.info(f"Identidad: {self.identity.did}")
 
-        # Reconciliar DID con dominio público si PUBLIC_URL está configurado
-        effective = config.effective_domain()
+        # Reconciliar DID con dominio efectivo (PUBLIC_URL o localhost+port)
+        effective = config.effective_did_domain()
         stored_parts = self.identity.did.split(":")
         if len(stored_parts) >= 3:
             stored_domain = stored_parts[2]
-            # Decodificar puerto URL-encoded (ej: localhost%3A7778 → localhost)
-            stored_host = stored_domain.split("%3A")[0]
-            effective_host = effective.split(":")[0]
-            if stored_host != effective_host:
-                logger.info(f"Dominio público cambió: {stored_host} → {effective_host}")
+            if stored_domain != effective:
+                logger.info(f"Dominio cambió: {stored_domain} → {effective}")
                 self.identity.update_domain(effective)
 
         # Restaurar mensajes pendientes
@@ -113,7 +161,7 @@ class EsenceNode:
             "values": [],
         }
         self.store.initialize(identity_data)
-        identity = Identity.generate(config.node_name, config.domain)
+        identity = Identity.generate(config.node_name, config.effective_did_domain())
         identity.save()
         logger.info("essence-store/ creado automáticamente")
 
@@ -177,8 +225,21 @@ class EsenceNode:
 
         # Generar respuesta propuesta con el engine
         try:
+            # Notificar UI que el agente está pensando
+            await ws_manager.broadcast("agent_thinking", {"thread_id": thread_id})
+
+            history = self.store.read_thread(thread_id)
+            context_messages = [
+                {
+                    "role": "user" if m.get("from_did") != (self.identity.did if self.identity else "") else "assistant",
+                    "content": m.get("content", ""),
+                }
+                for m in history[-10:]
+                if m.get("content")
+            ]
             proposed = await self.engine.generate(
                 user_message=content,
+                context_messages=context_messages,
                 max_tokens=512,
             )
             # Agregar propuesta al mensaje
@@ -363,6 +424,26 @@ class EsenceNode:
             "corrections_count": len(corrections),
             "patterns_count": len(patterns),
         }
+
+    def get_recent_threads(self, limit: int = 20) -> list[dict]:
+        """Retorna metadata de los threads más recientes."""
+        thread_ids = self.store.list_threads()
+        result = []
+        for tid in thread_ids:
+            messages = self.store.read_thread(tid)
+            if not messages:
+                continue
+            last = messages[-1]
+            result.append({
+                "thread_id": tid,
+                "from_did": messages[0].get("from_did", ""),
+                "last_message": last.get("content", "")[:80],
+                "timestamp": last.get("timestamp", ""),
+                "status": last.get("status", ""),
+                "message_count": len(messages),
+            })
+        result.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        return result[:limit]
 
     async def stop(self) -> None:
         self._running = False

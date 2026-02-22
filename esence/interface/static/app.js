@@ -69,6 +69,8 @@
       clearTimeout(wsReconnectTimer);
       sendWS("get_state");
       sendWS("get_pending");
+      loadPeers();
+      loadContext();
     };
 
     ws.onmessage = (e) => {
@@ -94,6 +96,7 @@
 
       case "node_state":
         applyState(data);
+        loadPeers();
         break;
 
       case "inbound_message":
@@ -106,6 +109,7 @@
         break;
 
       case "review_ready":
+        removeThinkingBubble(data.thread_id);
         upsertCard(data.message, "inbound");
         updateReplyBtn(data.thread_id, data.proposed_reply);
         if (!currentReviewThreadId || currentReviewThreadId === data.thread_id) {
@@ -114,6 +118,7 @@
         break;
 
       case "auto_approved":
+        removeThinkingBubble(data.thread_id);
         updateStatus(data.thread_id, "auto_approved");
         notify("Auto-aprobado · " + shortenDid(data.from_did || ""), "info");
         break;
@@ -163,6 +168,22 @@
         const n = data.new_patterns;
         notify(`${n} nuevo${n > 1 ? "s" : ""} patrón${n > 1 ? "es" : ""} extraído${n > 1 ? "s" : ""}`, "success");
         sendWS("get_state");
+        break;
+
+      case "thread_history":
+        (data.threads || []).forEach((t) => {
+          upsertCard({
+            thread_id: t.thread_id,
+            from_did: t.from_did,
+            content: t.last_message,
+            timestamp: t.timestamp,
+            status: t.status,
+          }, "inbound");
+        });
+        break;
+
+      case "agent_thinking":
+        showThinkingBubble(data.thread_id);
         break;
 
       case "error":
@@ -503,6 +524,109 @@
   }
 
   // ------------------------------------------------------------------
+  // Send message panel
+  // ------------------------------------------------------------------
+
+  document.getElementById('btn-send-msg').onclick = async () => {
+    const to_did = document.getElementById('send-to-did').value.trim();
+    const content = document.getElementById('send-content').value.trim();
+    const statusEl = document.getElementById('send-status');
+    if (!to_did || !content) return;
+    statusEl.textContent = 'Enviando…';
+    statusEl.className = 'send-status sending';
+    try {
+      const resp = await fetch('/api/send', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({to_did, content}),
+      });
+      const data = await resp.json();
+      if (data.status === 'sent') {
+        notify('Mensaje enviado ✓', 'success');
+        document.getElementById('send-content').value = '';
+        statusEl.textContent = '';
+        statusEl.className = 'send-status';
+      } else {
+        statusEl.textContent = 'Error al enviar';
+        statusEl.className = 'send-status error';
+        notify('Error al enviar', 'error');
+      }
+    } catch (err) {
+      statusEl.textContent = 'Error de red';
+      statusEl.className = 'send-status error';
+      notify('Error de red', 'error');
+    }
+  };
+
+  // ------------------------------------------------------------------
+  // Peers panel
+  // ------------------------------------------------------------------
+
+  async function loadPeers() {
+    try {
+      const resp = await fetch('/api/peers');
+      if (!resp.ok) return;
+      const peers = await resp.json();
+      const list = document.getElementById('peers-list');
+      const badge = document.getElementById('peer-count-badge');
+      badge.textContent = peers.length;
+      list.innerHTML = '';
+      if (!peers.length) {
+        list.innerHTML = '<li class="peer-empty">Sin peers conocidos</li>';
+        return;
+      }
+      peers.forEach((peer) => {
+        const trust = peer.trust_score != null ? peer.trust_score : 0.5;
+        const pct = Math.round(trust * 100);
+        const shortDid = shortenDid(peer.did || '');
+        const li = document.createElement('li');
+        li.className = 'peer-item';
+        li.innerHTML = `
+          <div class="peer-info">
+            <span class="peer-did" title="${esc(peer.did || '')}">${esc(shortDid)}</span>
+            <div class="trust-bar-wrap">
+              <div class="trust-bar" style="width:${pct}%"></div>
+            </div>
+            <span class="peer-trust">${pct}%</span>
+          </div>
+          <button class="peer-remove-btn" data-did="${esc(peer.did || '')}" title="Eliminar peer">×</button>
+        `;
+        li.querySelector('.peer-remove-btn').addEventListener('click', async () => {
+          const did = li.querySelector('.peer-remove-btn').dataset.did;
+          await fetch(`/api/peers/${encodeURIComponent(did)}`, {method: 'DELETE'});
+          loadPeers();
+          notify('Peer eliminado');
+        });
+        list.appendChild(li);
+      });
+    } catch (err) {
+      console.error('loadPeers:', err);
+    }
+  }
+
+  document.getElementById('btn-add-peer').addEventListener('click', async () => {
+    const input = document.getElementById('new-peer-did');
+    const did = input.value.trim();
+    if (!did) return;
+    const resp = await fetch('/api/peers', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({did}),
+    });
+    if (resp.ok) {
+      input.value = '';
+      loadPeers();
+      notify('Peer agregado', 'success');
+    } else {
+      notify('Error al agregar peer', 'error');
+    }
+  });
+
+  document.getElementById('new-peer-did').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('btn-add-peer').click();
+  });
+
+  // ------------------------------------------------------------------
   // Chat input
   // ------------------------------------------------------------------
 
@@ -602,6 +726,65 @@
       .replace(/&/g, "&amp;").replace(/</g, "&lt;")
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
+
+  // ------------------------------------------------------------------
+  // Typing indicator
+  // ------------------------------------------------------------------
+
+  function showThinkingBubble(thread_id) {
+    const t = threads[thread_id];
+    if (!t) return;
+    const el = t.el;
+    if (el.querySelector(".thinking-indicator")) return;
+    const indicator = document.createElement("div");
+    indicator.className = "thinking-indicator";
+    indicator.innerHTML = '<span class="spinner"></span> pensando…';
+    el.appendChild(indicator);
+  }
+
+  function removeThinkingBubble(thread_id) {
+    const t = threads[thread_id];
+    if (!t) return;
+    const indicator = t.el.querySelector(".thinking-indicator");
+    if (indicator) indicator.remove();
+  }
+
+  // ------------------------------------------------------------------
+  // Context editor
+  // ------------------------------------------------------------------
+
+  async function loadContext() {
+    try {
+      const resp = await fetch("/api/context");
+      if (!resp.ok) return;
+      const data = await resp.json();
+      document.getElementById("context-editor").value = data.content || "";
+    } catch (err) {
+      console.error("loadContext:", err);
+    }
+  }
+
+  document.getElementById("btn-save-context").onclick = async () => {
+    const content = document.getElementById("context-editor").value;
+    const statusEl = document.getElementById("context-save-status");
+    try {
+      const resp = await fetch("/api/context", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      });
+      if (resp.ok) {
+        statusEl.textContent = "Guardado ✓";
+        notify("Contexto actualizado", "success");
+        sendWS("get_state");
+      } else {
+        statusEl.textContent = "Error al guardar";
+      }
+    } catch (err) {
+      statusEl.textContent = "Error de red";
+    }
+    setTimeout(() => { statusEl.textContent = ""; }, 3000);
+  };
 
   // ------------------------------------------------------------------
   // Init

@@ -183,6 +183,40 @@
         <div id="learning-feedback" class="learning-feedback hidden"></div>
       </div>
 
+      <!-- Send message panel -->
+      <section id="send-panel" class="card">
+        <h3>Enviar mensaje</h3>
+        <input id="send-to-did" type="text" placeholder="did:wba:domain:name" autocomplete="off" spellcheck="false" />
+        <textarea id="send-content" rows="3" placeholder="Contenido..."></textarea>
+        <button id="btn-send-msg" class="btn btn-send">Enviar</button>
+        <div id="send-status" class="send-status"></div>
+      </section>
+
+      <!-- Peers panel -->
+      <section id="peers-panel" class="card">
+        <h3>Peers <span id="peer-count-badge" class="badge">0</span></h3>
+        <ul id="peers-list"></ul>
+        <div class="peer-add-row">
+          <input id="new-peer-did" type="text" placeholder="did:wba:..." autocomplete="off" spellcheck="false" />
+          <button id="btn-add-peer" class="btn btn-add-peer" title="Agregar peer">+</button>
+        </div>
+      </section>
+
+      <!-- Context editor panel -->
+      <details id="context-panel" class="card collapsible">
+        <summary class="card-toggle">
+          <span>Contexto del nodo</span>
+          <span class="toggle-icon">›</span>
+        </summary>
+        <div class="context-body">
+          <textarea id="context-editor" rows="8" placeholder="Conocimiento acumulado..."></textarea>
+          <div class="context-actions">
+            <span id="context-save-status" class="save-status"></span>
+            <button id="btn-save-context" class="btn btn-save">Guardar</button>
+          </div>
+        </div>
+      </details>
+
       <!-- Maturity card -->
       <div class="maturity-card" id="maturity-card">
         <div class="maturity-header">

@@ -7,6 +7,9 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+import time
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -16,7 +19,9 @@ from esence.protocol.message import EsenceMessage, parse_message
 
 logger = logging.getLogger(__name__)
 
-_DID_CACHE: dict[str, dict] = {}  # cache de DID documents resueltos
+_DID_CACHE: dict[str, tuple[dict, float]] = {}  # (did_doc, cached_at)
+_DID_CACHE_TTL = 300  # segundos — expira en 5 min (útil con ngrok)
+_DID_RE = re.compile(r'^did:wba:[a-zA-Z0-9._:%-]+:[a-zA-Z0-9_-]+$')
 
 
 async def resolve_did(did: str, timeout: float = 10.0) -> dict[str, Any]:
@@ -26,8 +31,12 @@ async def resolve_did(did: str, timeout: float = 10.0) -> dict[str, Any]:
     did:wba:domain:name → GET https://domain/.well-known/did.json
     Para localhost incluye el puerto si está en el DID.
     """
+    now = time.time()
     if did in _DID_CACHE:
-        return _DID_CACHE[did]
+        doc, cached_at = _DID_CACHE[did]
+        if now - cached_at < _DID_CACHE_TTL:
+            return doc
+        del _DID_CACHE[did]  # expiró
 
     # Parsear did:wba:domain:name
     parts = did.split(":")
@@ -49,7 +58,7 @@ async def resolve_did(did: str, timeout: float = 10.0) -> dict[str, Any]:
         resp.raise_for_status()
         did_doc = resp.json()
 
-    _DID_CACHE[did] = did_doc
+    _DID_CACHE[did] = (did_doc, now)
     return did_doc
 
 
@@ -115,6 +124,23 @@ async def receive_message(
     Retorna (mensaje, firma_válida).
     """
     message = parse_message(payload)
+
+    # Validar formato DID
+    if not _DID_RE.match(message.from_did):
+        logger.warning(f"DID inválido: {message.from_did}")
+        return message, False
+
+    # Validar frescura del mensaje (máx. 5 minutos)
+    try:
+        msg_time = datetime.fromisoformat(message.timestamp)
+        age = abs((datetime.now(timezone.utc) - msg_time).total_seconds())
+        if age > 300:
+            logger.warning(f"Mensaje stale de {message.from_did} (age={age:.0f}s)")
+            return message, False
+    except (ValueError, TypeError):
+        logger.warning(f"Timestamp inválido en mensaje de {message.from_did}")
+        return message, False
+
     signature = message.signature
 
     if not signature:
