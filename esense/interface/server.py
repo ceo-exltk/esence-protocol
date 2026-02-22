@@ -241,11 +241,10 @@ def create_app(node: "EsenseNode | None" = None) -> FastAPI:
 
     @app.delete("/api/threads/{thread_id}")
     async def delete_thread(thread_id: str) -> JSONResponse:
-        """Elimina un thread del essence-store."""
+        """Elimina un thread del essence-store y de la cola de pendientes."""
         if not node:
             raise HTTPException(status_code=503, detail="Nodo no inicializado")
-        # Sacar de la cola de pendientes si estuviera
-        node.queue._pending.pop(thread_id, None)
+        node.queue.remove_pending(thread_id)
         deleted = node.store.delete_thread(thread_id)
         if not deleted:
             raise HTTPException(status_code=404, detail="Thread no encontrado")

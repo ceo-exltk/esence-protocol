@@ -224,5 +224,9 @@ class MessageQueue:
         """Retorna un mensaje pendiente sin sacarlo de la cola."""
         return self._pending.get(thread_id)
 
+    def remove_pending(self, thread_id: str) -> None:
+        """Elimina un mensaje de la cola de pendientes (sin aprobar ni rechazar)."""
+        self._pending.pop(thread_id, None)
+
     def pending_count(self) -> int:
         return len(self._pending)
