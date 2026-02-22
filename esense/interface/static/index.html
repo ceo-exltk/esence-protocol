@@ -119,12 +119,15 @@
         <div id="thread-messages" class="thread-messages"></div>
         <div class="thread-reply-box">
           <textarea id="thread-reply-text" rows="2" placeholder="Responder…" maxlength="2000"></textarea>
-          <button id="btn-thread-reply" class="btn btn-send">
-            Enviar
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-            </svg>
-          </button>
+          <div class="thread-reply-actions">
+            <button class="btn btn-approve-all hidden">Aprobar · Enviar</button>
+            <button id="btn-thread-reply" class="btn btn-send">
+              Enviar
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 

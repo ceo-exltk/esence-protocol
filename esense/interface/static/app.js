@@ -180,6 +180,14 @@
             hideReview();
           }
         }
+        // Refresh thread panel pending banner if it's open for this peer
+        if (currentThreadPeer) {
+          const t = threads[data.thread_id];
+          if (t?.peerDid === currentThreadPeer) {
+            renderPendingBanner(currentThreadPeer);
+            updateApproveAllBtn(currentThreadPeer);
+          }
+        }
         setPending(Math.max(0, pendingCount - 1));
         sendWS("get_pending");
         break;
@@ -1011,6 +1019,38 @@
   // Thread detail panel
   // ------------------------------------------------------------------
 
+  // Returns list of pending thread_ids for a given peerDid
+  function getPendingTids(peerDid) {
+    const ng = nodeGroups[peerDid];
+    return (ng?.tids || []).filter((tid) => {
+      const t = threads[tid];
+      return t?.msg?.status === "pending_human_review";
+    });
+  }
+
+  // Renders the pending-messages banner inside the thread panel
+  function renderPendingBanner(peerDid) {
+    const existing = threadPanel.querySelector(".thread-pending-banner");
+    if (existing) existing.remove();
+
+    const pendingTids = getPendingTids(peerDid);
+    if (!pendingTids.length) return;
+
+    const banner = document.createElement("div");
+    banner.className = "thread-pending-banner";
+    banner.innerHTML = `
+      <span class="thread-pending-badge">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        ${pendingTids.length} mensaje${pendingTids.length !== 1 ? "s" : ""} pendiente${pendingTids.length !== 1 ? "s" : ""}
+      </span>
+      <span class="thread-pending-hint">Escribí tu respuesta abajo y aprobá todo de una vez</span>
+    `;
+    // Insert after header
+    threadPanel.querySelector(".thread-panel-header").after(banner);
+  }
+
   async function openThreadPanel(peerDid) {
     currentThreadPeer = peerDid;
     const label = shortenDid(peerDid);
@@ -1018,6 +1058,8 @@
     threadPanelDid.textContent  = peerDid;
     threadMessages.innerHTML = '<div class="thread-loading">Cargando…</div>';
     threadPanel.classList.remove("hidden");
+    renderPendingBanner(peerDid);
+    updateApproveAllBtn(peerDid);
 
     // Collect all thread_ids for this peer
     const ng = nodeGroups[peerDid];
@@ -1033,7 +1075,6 @@
           allMsgs.push(...(data.messages || []));
         }
       } catch (_) {
-        // fallback: use what we have in memory
         const t = threads[tid];
         if (t) allMsgs.push(t.msg);
       }
@@ -1050,8 +1091,9 @@
     threadMessages.innerHTML = "";
     allMsgs.forEach((m) => {
       const isOwn = m.from_did === nodeState.did || m.direction === "outbound";
+      const isPending = m.status === "pending_human_review";
       const row = document.createElement("div");
-      row.className = `thread-msg-row ${isOwn ? "mine" : "theirs"}`;
+      row.className = `thread-msg-row ${isOwn ? "mine" : "theirs"}${isPending ? " pending" : ""}`;
       row.innerHTML = `
         <div class="thread-msg-bubble">${esc(m.content || "")}</div>
         <div style="display:flex;gap:6px;align-items:center;">
@@ -1062,10 +1104,22 @@
       threadMessages.appendChild(row);
     });
 
-    // Scroll to bottom
     threadMessages.scrollTop = threadMessages.scrollHeight;
     threadReplyText.value = "";
     threadReplyText.focus();
+  }
+
+  // Show/hide "Aprobar todo" button depending on pending count
+  function updateApproveAllBtn(peerDid) {
+    const existing = threadPanel.querySelector(".btn-approve-all");
+    const pendingTids = getPendingTids(peerDid || currentThreadPeer);
+    if (!existing) return;
+    if (pendingTids.length > 0) {
+      existing.classList.remove("hidden");
+      existing.textContent = `Aprobar ${pendingTids.length > 1 ? `${pendingTids.length} · ` : ""}Enviar`;
+    } else {
+      existing.classList.add("hidden");
+    }
   }
 
   function closeThreadPanel() {
@@ -1075,9 +1129,62 @@
 
   btnThreadClose?.addEventListener("click", closeThreadPanel);
 
+  // Approve all pending from this peer with one reply
+  async function approveAllPending(content) {
+    if (!currentThreadPeer) return;
+    const pendingTids = getPendingTids(currentThreadPeer);
+    if (!pendingTids.length) return;
+
+    const btn = threadPanel.querySelector(".btn-approve-all");
+    if (btn) { btn.disabled = true; btn.textContent = "Enviando…"; }
+    btnThreadReply.disabled = true;
+
+    // Approve each pending thread with the same reply (or null for LLM if empty)
+    const editedReply = content || null;
+    let successCount = 0;
+    for (const tid of pendingTids) {
+      try {
+        await new Promise((resolve) => {
+          sendWS("approve", { thread_id: tid, edited_reply: editedReply });
+          // Give a short gap between approvals
+          setTimeout(resolve, 150);
+        });
+        successCount++;
+      } catch (_) {}
+    }
+
+    // Add own message to thread view
+    if (content) {
+      const row = document.createElement("div");
+      row.className = "thread-msg-row mine";
+      row.innerHTML = `
+        <div class="thread-msg-bubble">${esc(content)}</div>
+        <span class="thread-msg-time">${fmtTime(new Date().toISOString())}</span>
+      `;
+      threadMessages.appendChild(row);
+      threadMessages.scrollTop = threadMessages.scrollHeight;
+    }
+
+    threadReplyText.value = "";
+    notify(`${successCount} mensaje${successCount !== 1 ? "s" : ""} aprobado${successCount !== 1 ? "s" : ""} ✓`, "success");
+    if (btn) { btn.disabled = false; btn.classList.add("hidden"); }
+    btnThreadReply.disabled = false;
+    // Remove pending banner
+    threadPanel.querySelector(".thread-pending-banner")?.remove();
+  }
+
   btnThreadReply?.addEventListener("click", async () => {
     const content = threadReplyText.value.trim();
     if (!content || !currentThreadPeer) return;
+
+    // If there are pending messages, use "approve all" flow
+    const pendingTids = getPendingTids(currentThreadPeer);
+    if (pendingTids.length > 0) {
+      await approveAllPending(content);
+      return;
+    }
+
+    // No pending — just send a new message
     const toDid = currentThreadPeer;
     btnThreadReply.disabled = true;
     try {
@@ -1088,7 +1195,6 @@
       });
       const data = await resp.json();
       if (data.status === "sent") {
-        // Add own message to thread view
         const row = document.createElement("div");
         row.className = "thread-msg-row mine";
         row.innerHTML = `

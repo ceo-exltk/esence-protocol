@@ -826,14 +826,47 @@ details[open] .toggle-icon { transform: rotate(90deg); }
 .thread-loading { color: var(--text-dim); font-size: 12px; text-align: center; padding: 20px; font-family: var(--font); }
 .thread-empty   { color: var(--text-dim); font-size: 12px; text-align: center; padding: 20px; font-family: var(--font); }
 
+/* Pending messages banner */
+.thread-pending-banner {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  background: var(--amber-dim);
+  display: flex; flex-direction: column; gap: 3px; flex-shrink: 0;
+}
+.thread-pending-badge {
+  font-family: var(--font); font-size: 11px; color: var(--amber);
+  display: flex; align-items: center; gap: 5px; font-weight: 600;
+}
+.thread-pending-hint {
+  font-size: 11px; color: var(--text-muted);
+}
+
+/* Pending message highlight */
+.thread-msg-row.pending .thread-msg-bubble {
+  border-color: var(--amber); background: var(--amber-dim);
+}
+
 .thread-reply-box {
   padding: 10px 14px; border-top: 1px solid var(--border);
-  display: flex; gap: 8px; align-items: flex-end;
+  display: flex; flex-direction: column; gap: 8px;
   background: var(--bg-surface); flex-shrink: 0;
 }
 .thread-reply-box textarea {
-  flex: 1; min-height: 48px; max-height: 120px; resize: none;
+  width: 100%; min-height: 48px; max-height: 120px; resize: none;
 }
+.thread-reply-actions {
+  display: flex; gap: 8px; justify-content: flex-end; align-items: center;
+}
+
+/* Approve-all button */
+.btn-approve-all {
+  background: var(--green-mid); color: var(--green);
+  border: 1px solid #2a6040; border-radius: var(--r-sm);
+  padding: 7px 14px; cursor: pointer; font-size: 12px; font-weight: 600;
+  transition: all 0.15s; white-space: nowrap;
+}
+.btn-approve-all:hover    { background: #1b4332; }
+.btn-approve-all:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-approve-all.hidden   { display: none; }
 
 /* ============================================================
    Typing indicator
