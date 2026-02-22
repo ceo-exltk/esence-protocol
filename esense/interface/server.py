@@ -174,14 +174,17 @@ def create_app(node: "EsenseNode | None" = None) -> FastAPI:
 
     @app.get("/api/peers")
     async def get_peers() -> JSONResponse:
-        """Lista de peers conocidos."""
+        """Lista de peers conocidos, enriquecida con display_name."""
         if not node:
             return JSONResponse([])
-        return JSONResponse(node.peers.get_all())
+        peers = node.peers.get_all()
+        for peer in peers:
+            peer["display_name"] = node.peers.get_peer_display_name(peer.get("did", ""))
+        return JSONResponse(peers)
 
     @app.post("/api/peers")
     async def add_peer(request: Request) -> JSONResponse:
-        """Agrega un peer por DID."""
+        """Agrega un peer por DID. Acepta alias opcional."""
         if not node:
             raise HTTPException(status_code=503, detail="Nodo no inicializado")
         try:
@@ -191,7 +194,24 @@ def create_app(node: "EsenseNode | None" = None) -> FastAPI:
         did = body.get("did")
         if not did:
             raise HTTPException(status_code=400, detail="did requerido")
-        peer = node.peers.add_or_update(did, trust_score=0.3)
+        alias = body.get("alias") or None
+        peer = node.peers.add_or_update(did, trust_score=0.3, alias=alias)
+        peer["display_name"] = node.peers.get_peer_display_name(did)
+        return JSONResponse({"status": "ok", "peer": peer})
+
+    @app.patch("/api/peers/{did:path}")
+    async def update_peer_alias(did: str, request: Request) -> JSONResponse:
+        """Actualiza el alias de un peer."""
+        if not node:
+            raise HTTPException(status_code=503, detail="Nodo no inicializado")
+        decoded_did = urllib.parse.unquote(did)
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="JSON inválido")
+        alias = body.get("alias", "").strip() or None
+        peer = node.peers.add_or_update(decoded_did, alias=alias)
+        peer["display_name"] = node.peers.get_peer_display_name(decoded_did)
         return JSONResponse({"status": "ok", "peer": peer})
 
     @app.delete("/api/peers/{did:path}")

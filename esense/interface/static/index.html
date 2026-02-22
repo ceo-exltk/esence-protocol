@@ -103,7 +103,7 @@
           <div class="review-title-row">
             <span class="review-badge">
               <span class="pulse-dot"></span>
-              Revisión pendiente
+              Respuesta propuesta
             </span>
             <button class="icon-btn" id="btn-review-close" title="Cerrar">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -137,9 +137,9 @@
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
               </svg>
-              Respuesta propuesta
+              Respuesta del agente
             </div>
-            <span class="edit-hint">editá para ajustar</span>
+            <span class="edit-hint">editá para ajustar · se enviará al aprobar</span>
           </div>
           <textarea
             id="proposal-edit"
@@ -169,7 +169,7 @@
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
-            Aprobar
+            Aprobar y enviar
           </button>
           <button id="btn-reject" class="btn btn-reject">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -179,6 +179,8 @@
           </button>
         </div>
 
+        <!-- Confirmación de envío (aparece al aprobar) -->
+        <div id="send-confirmation" class="send-confirmation hidden"></div>
         <!-- Learning feedback (aparece al aprobar) -->
         <div id="learning-feedback" class="learning-feedback hidden"></div>
       </div>

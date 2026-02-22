@@ -122,3 +122,13 @@ class PeerManager:
 
     def peer_count(self) -> int:
         return len(self.get_all())
+
+    def get_peer_display_name(self, did: str) -> str:
+        """Retorna alias si existe, sino @node_name extraído del DID."""
+        peer = self.get_peer(did)
+        if peer and peer.get("alias"):
+            return peer["alias"]
+        parts = did.split(":")
+        if len(parts) >= 4:
+            return f"@{parts[3]}"
+        return did

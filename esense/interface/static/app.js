@@ -15,6 +15,8 @@
   let pendingCount = 0;
   let currentMood = "moderate";
   let nodeState = {};
+  let peerMap = {};         // did → peer object (con display_name, alias)
+  let reviewLoadingTimer = null; // timeout para spinner "generando"
   const threads = {};       // thread_id → { msg, el: bubble, group: groupEl, direction }
   let lastGroupKey = null;  // "direction:fromDid" of the last prepended group
   let lastGroupEl = null;   // DOM element of that group
@@ -47,6 +49,7 @@
   const btnReject          = $("btn-reject");
   const btnReviewClose     = $("btn-review-close");
   const learningFeedback   = $("learning-feedback");
+  const sendConfirmation   = $("send-confirmation");
   const inputText          = $("input-text");
   const btnSend            = $("btn-send");
   const charCount          = $("char-count");
@@ -201,9 +204,12 @@
     nodeState = state;
 
     if (state.did) {
-      didText.textContent = shortenDid(state.did);
+      // Mostrar solo @node_name en el header, DID completo en tooltip
+      const parts = state.did.split(":");
+      const nodeName = parts[parts.length - 1] || "node";
+      didText.textContent = `@${nodeName}`;
       didText.title = state.did;
-      const name = state.node_name || "N";
+      const name = state.node_name || nodeName || "N";
       avatarInitials.textContent = name[0].toUpperCase();
     }
 
@@ -334,13 +340,28 @@
 
     threads[tid] = { msg, el: bubble, group: groupEl, direction };
 
-    // Wire up reply button
+    // Wire up review button (ver propuesta del agente)
     const replyBtn = bubble.querySelector(".reply-btn");
     if (replyBtn) {
       replyBtn.addEventListener("click", () => {
         const proposed = replyBtn.dataset.proposed || "";
         showReview({ ...msg, thread_id: tid, proposed_reply: proposed });
         reviewCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    }
+
+    // Wire up respond button (abrir panel enviar con DID pre-cargado)
+    const respondBtn = bubble.querySelector(".respond-btn");
+    if (respondBtn) {
+      respondBtn.addEventListener("click", () => {
+        const fromDid = respondBtn.dataset.fromDid || "";
+        const sendToDid = document.getElementById("send-to-did");
+        const sendContent = document.getElementById("send-content");
+        const sendPanel = document.getElementById("send-panel");
+        if (sendToDid) sendToDid.value = fromDid;
+        if (sendContent) sendContent.focus();
+        if (sendPanel) sendPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        notify(`Respondiendo a ${shortenDid(fromDid)}`, "info");
       });
     }
   }
@@ -395,6 +416,15 @@
                 <polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
               </svg>
               ${isPending ? "Revisar" : "Ver"}
+            </button>
+            <button class="msg-action-btn respond-btn"
+                    data-tid="${esc(tid)}"
+                    data-from-did="${esc(msg.from_did || '')}"
+                    title="Responder directamente">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              Responder
             </button>
           </div>` : ""}
         </div>
@@ -457,6 +487,9 @@
     btnReject.disabled = false;
     diffIndicator.classList.add("hidden");
 
+    sendConfirmation.classList.add("hidden");
+    sendConfirmation.innerHTML = "";
+
     if (msg.proposed_reply) {
       proposalEdit.value = msg.proposed_reply;
       proposalEdit.classList.remove("edited");
@@ -465,6 +498,21 @@
     } else {
       reviewProposal.classList.add("hidden");
       reviewLoading.classList.remove("hidden");
+      // Timeout de 15s si la propuesta no llega
+      clearTimeout(reviewLoadingTimer);
+      reviewLoadingTimer = setTimeout(() => {
+        if (reviewLoading.classList.contains("hidden")) return;
+        reviewLoading.innerHTML = `
+          <span style="color:var(--text-muted)">El agente tardó demasiado en responder.</span>
+          <button class="btn btn-sm" id="btn-manual-reply">Escribir respuesta manual</button>
+        `;
+        document.getElementById("btn-manual-reply")?.addEventListener("click", () => {
+          reviewLoading.classList.add("hidden");
+          proposalEdit.value = "";
+          reviewProposal.classList.remove("hidden");
+          proposalEdit.focus();
+        });
+      }, 15000);
     }
 
     reviewCard.classList.remove("hidden");
@@ -492,10 +540,11 @@
     const wasEdited = edited !== originalProposal && edited !== "";
     const editedReply = edited || null;
 
+    const recipientDid = threads[currentReviewThreadId]?.msg?.from_did || "";
     sendWS("approve", { thread_id: currentReviewThreadId, edited_reply: editedReply });
     btnApprove.disabled = true;
     btnReject.disabled = true;
-    showLearningFeedback(wasEdited, nodeState.corrections_count || 0);
+    showLearningFeedback(wasEdited, nodeState.corrections_count || 0, recipientDid);
   });
 
   btnReject.addEventListener("click", () => {
@@ -506,10 +555,19 @@
 
   btnReviewClose.addEventListener("click", hideReview);
 
-  function showLearningFeedback(wasEdited, prevCorrections) {
+  function showLearningFeedback(wasEdited, prevCorrections, recipientDid) {
     const next  = prevCorrections + 1;
     const toNext = 5 - (next % 5);
 
+    // Confirmación de envío (persistente)
+    const recipient = shortenDid(recipientDid || "");
+    sendConfirmation.innerHTML = `
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      Respuesta enviada a <strong>${esc(recipient)}</strong>
+    `;
+    sendConfirmation.classList.remove("hidden");
+
+    // Feedback de aprendizaje
     let html = wasEdited
       ? `<strong>✦ Señal de aprendizaje registrada</strong><span>El agente tomó nota de tu corrección.</span>`
       : `<strong>✓ Aprobación registrada</strong><span>El agente confirmó este patrón.</span>`;
@@ -520,7 +578,7 @@
 
     learningFeedback.innerHTML = html;
     learningFeedback.classList.remove("hidden");
-    setTimeout(() => hideReview(), 2500);
+    // Ya no se cierra automáticamente — el usuario cierra con el botón ×
   }
 
   // ------------------------------------------------------------------
@@ -567,6 +625,10 @@
       const resp = await fetch('/api/peers');
       if (!resp.ok) return;
       const peers = await resp.json();
+
+      // Actualizar peerMap global para que shortenDid resuelva alias
+      peerMap = peers.reduce((m, p) => ({ ...m, [p.did]: p }), {});
+
       const list = document.getElementById('peers-list');
       const badge = document.getElementById('peer-count-badge');
       badge.textContent = peers.length;
@@ -578,12 +640,16 @@
       peers.forEach((peer) => {
         const trust = peer.trust_score != null ? peer.trust_score : 0.5;
         const pct = Math.round(trust * 100);
-        const shortDid = shortenDid(peer.did || '');
+        const displayName = peer.display_name || shortenDid(peer.did || '');
+        const alias = peer.alias || '';
         const li = document.createElement('li');
         li.className = 'peer-item';
         li.innerHTML = `
           <div class="peer-info">
-            <span class="peer-did" title="${esc(peer.did || '')}">${esc(shortDid)}</span>
+            <div class="peer-name-row">
+              <span class="peer-did" title="${esc(peer.did || '')}">${esc(displayName)}</span>
+              <input class="peer-alias-input" value="${esc(alias)}" placeholder="alias (ej: @daniel)" title="Alias para mostrar" data-did="${esc(peer.did || '')}"/>
+            </div>
             <div class="trust-bar-wrap">
               <div class="trust-bar" style="width:${pct}%"></div>
             </div>
@@ -591,9 +657,24 @@
           </div>
           <button class="peer-remove-btn" data-did="${esc(peer.did || '')}" title="Eliminar peer">×</button>
         `;
+        // Guardar alias al hacer blur o Enter
+        const aliasInput = li.querySelector('.peer-alias-input');
+        const saveAlias = async () => {
+          const did = aliasInput.dataset.did;
+          const newAlias = aliasInput.value.trim();
+          await fetch(`/api/peers/${encodeURIComponent(did)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ alias: newAlias }),
+          });
+          loadPeers();
+        };
+        aliasInput.addEventListener('blur', saveAlias);
+        aliasInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveAlias(); } });
+
         li.querySelector('.peer-remove-btn').addEventListener('click', async () => {
           const did = li.querySelector('.peer-remove-btn').dataset.did;
-          await fetch(`/api/peers/${encodeURIComponent(did)}`, {method: 'DELETE'});
+          await fetch(`/api/peers/${encodeURIComponent(did)}`, { method: 'DELETE' });
           loadPeers();
           notify('Peer eliminado');
         });
@@ -687,9 +768,14 @@
 
   function shortenDid(did) {
     if (!did) return "—";
+    // Alias configurado en peers tiene prioridad
+    const peer = peerMap[did];
+    if (peer?.alias) return peer.alias;
+    if (peer?.display_name) return peer.display_name;
+    // Fallback: extraer @node_name del DID
     if (did.startsWith("did:wba:")) {
       const p = did.split(":");
-      if (p.length >= 4) return `${p[2]}/${p[3]}`;
+      if (p.length >= 4) return `@${p[3]}`;
     }
     return did.length <= 28 ? did : did.slice(0, 16) + "…" + did.slice(-8);
   }
