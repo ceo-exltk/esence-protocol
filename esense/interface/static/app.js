@@ -22,6 +22,7 @@
   const threads = {};              // thread_id → { msg, el: bubble, group: groupEl, direction, peerDid }
   const nodeGroups = {};           // peerDid → { el, tids: [], did, direction }
   let currentThreadPeer = null;    // DID of peer whose thread panel is open
+  const activeStreams = {};        // stream_id → { tid, contentEl, text }
 
   // ------------------------------------------------------------------
   // DOM refs
@@ -151,6 +152,7 @@
         break;
 
       case "agent_reply":
+        // Fallback (non-streaming) — used if streaming fails
         upsertCard({
           from_did: "tu agente",
           content: data.content,
@@ -160,6 +162,52 @@
           thread_id: "self-" + Date.now(),
         }, "self");
         break;
+
+      case "agent_reply_start": {
+        const tid = "stream-" + data.stream_id;
+        upsertCard({
+          from_did: "tu agente",
+          content: "",
+          timestamp: new Date().toISOString(),
+          type: "self_reply",
+          status: "answered",
+          thread_id: tid,
+        }, "self");
+        const t = threads[tid];
+        if (t) {
+          const contentEl = t.el.querySelector(".msg-content");
+          // Add a blinking cursor
+          const cursor = document.createElement("span");
+          cursor.className = "stream-cursor";
+          contentEl.appendChild(cursor);
+          activeStreams[data.stream_id] = { tid, contentEl, text: "" };
+        }
+        break;
+      }
+
+      case "agent_reply_chunk": {
+        const stream = activeStreams[data.stream_id];
+        if (stream) {
+          stream.text += data.chunk;
+          // Update text node before the cursor
+          const cursor = stream.contentEl.querySelector(".stream-cursor");
+          if (cursor) {
+            cursor.before(document.createTextNode(data.chunk));
+          } else {
+            stream.contentEl.textContent = stream.text;
+          }
+        }
+        break;
+      }
+
+      case "agent_reply_done": {
+        const stream = activeStreams[data.stream_id];
+        if (stream) {
+          stream.contentEl.textContent = data.content || stream.text;
+          delete activeStreams[data.stream_id];
+        }
+        break;
+      }
 
       case "pending_messages":
         if (data.messages?.length) {

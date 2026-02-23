@@ -364,7 +364,7 @@ class TestThreadContinuity:
 
         # Mock del engine capturando context_messages
         captured = {}
-        async def fake_generate(user_message, context_messages=None, max_tokens=512):
+        async def fake_generate(user_message, context_messages=None, max_tokens=512, **kwargs):
             captured["context_messages"] = context_messages
             return "respuesta propuesta"
 
@@ -410,7 +410,7 @@ class TestThreadContinuity:
         node._running = True
 
         captured = {}
-        async def fake_generate(user_message, context_messages=None, max_tokens=512):
+        async def fake_generate(user_message, context_messages=None, max_tokens=512, **kwargs):
             captured["context_messages"] = context_messages
             return "respuesta"
 

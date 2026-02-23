@@ -90,14 +90,30 @@ class WSManager:
         msg_type = msg.get("type")
 
         if msg_type == "chat":
-            # El dueño habla con su propio agente
+            # El dueño habla con su propio agente — streaming
             content = msg.get("content", "")
             if content:
-                response = await self._node.engine.generate_self_response(content)
-                await self._send_to(ws, "agent_reply", {
-                    "content": response,
-                    "source": "self",
-                })
+                stream_id = f"chat-{id(content)}"
+                await self._send_to(ws, "agent_reply_start", {"stream_id": stream_id})
+                full_text = ""
+                try:
+                    async for chunk in self._node.engine.generate_self_response(content):
+                        full_text += chunk
+                        await self._send_to(ws, "agent_reply_chunk", {
+                            "stream_id": stream_id,
+                            "chunk": chunk,
+                        })
+                    await self._send_to(ws, "agent_reply_done", {
+                        "stream_id": stream_id,
+                        "content": full_text,
+                        "source": "self",
+                    })
+                except Exception as e:
+                    logger.error(f"Error en streaming self-response: {e}")
+                    await self._send_to(ws, "agent_reply", {
+                        "content": full_text or "[error generando respuesta]",
+                        "source": "self",
+                    })
 
         elif msg_type == "approve":
             # El usuario aprueba: AHORA corre el LLM y envía

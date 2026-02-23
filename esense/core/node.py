@@ -238,6 +238,15 @@ class EsenseNode:
             await ws_manager.broadcast("agent_thinking", {"thread_id": thread_id})
 
             if not edited_reply:
+                # Resolver nombre del peer para contexto del prompt
+                peers = self.store.read_peers()
+                peer_info = next((p for p in peers if p.get("did") == sender_did), None)
+                sender_name = (
+                    peer_info.get("alias")
+                    or peer_info.get("display_name")
+                    or sender_did.split(":")[-1]
+                ) if peer_info else sender_did.split(":")[-1]
+
                 # Generar con LLM
                 history = self.store.read_thread(thread_id)
                 context_messages = [
@@ -251,7 +260,8 @@ class EsenseNode:
                 llm_reply = await self.engine.generate(
                     user_message=content,
                     context_messages=context_messages,
-                    max_tokens=512,
+                    max_tokens=1024,
+                    sender_name=sender_name,
                 )
                 # Guardarlo en el mensaje pendiente para el loop de aprendizaje
                 message["proposed_reply"] = llm_reply
