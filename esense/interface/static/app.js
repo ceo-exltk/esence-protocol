@@ -120,6 +120,11 @@
           setPending(pendingCount + 1);
           if (!currentReviewThreadId) showReview(data);
           notify("Mensaje de " + shortenDid(data.from_did), "warning");
+          sendBrowserNotif(
+            `Mensaje de ${shortenDid(data.from_did)}`,
+            (data.content || "").slice(0, 80),
+            () => { if (!currentReviewThreadId) showReview(data); }
+          );
         }
         break;
 
@@ -336,6 +341,8 @@
       notifBadge.classList.add("hidden");
       btnNotif.style.color = "";
     }
+    updateFaviconBadge(pendingCount);
+    document.title = pendingCount > 0 ? `(${pendingCount}) Esense Node` : "Esense Node";
   }
 
   btnNotif.addEventListener("click", () => sendWS("get_pending"));
@@ -1424,10 +1431,83 @@
   };
 
   // ------------------------------------------------------------------
+  // Browser notifications + favicon badge
+  // ------------------------------------------------------------------
+
+  // Request notification permission once the user interacts
+  function requestNotifPermission() {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }
+  document.addEventListener("click", requestNotifPermission, { once: true });
+
+  function sendBrowserNotif(title, body, onClick) {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+    if (!document.hidden) return; // solo si la pestaña está en background
+    const n = new Notification(title, {
+      body,
+      icon: "/static/favicon.svg",
+      badge: "/static/favicon.svg",
+      tag: "esense-msg",       // agrupa notificaciones del mismo origen
+      renotify: true,
+    });
+    n.onclick = () => { window.focus(); n.close(); if (onClick) onClick(); };
+  }
+
+  // Favicon badge — SVG con número superpuesto
+  function updateFaviconBadge(count) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 32; canvas.height = 32;
+    const ctx = canvas.getContext("2d");
+
+    // Base icon: circle
+    ctx.beginPath();
+    ctx.arc(16, 16, 14, 0, 2 * Math.PI);
+    ctx.fillStyle = "#141414";
+    ctx.fill();
+    ctx.strokeStyle = "#7c6af7";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // "e" letter
+    ctx.fillStyle = "#7c6af7";
+    ctx.font = "bold 16px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("e", 16, 17);
+
+    if (count > 0) {
+      // Red badge
+      const r = 9;
+      const bx = 24, by = 8;
+      ctx.beginPath();
+      ctx.arc(bx, by, r, 0, 2 * Math.PI);
+      ctx.fillStyle = "#ff5252";
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(count > 9 ? "9+" : String(count), bx, by);
+    }
+
+    let link = document.querySelector("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement("link");
+      link.rel = "icon";
+      document.head.appendChild(link);
+    }
+    link.href = canvas.toDataURL();
+  }
+
+  // ------------------------------------------------------------------
   // Init
   // ------------------------------------------------------------------
 
   connect();
   setInterval(() => sendWS("get_state"), 30000);
+  updateFaviconBadge(0);
 
 })();
