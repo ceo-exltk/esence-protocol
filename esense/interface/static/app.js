@@ -464,6 +464,9 @@
   });
 
   // Profile Card — Share Identity
+  // Ensure modal starts hidden
+  if (profileCard) profileCard.classList.add("hidden");
+
   function openProfileCard() {
     profileCard?.classList.remove("hidden");
     const state = nodeState;
