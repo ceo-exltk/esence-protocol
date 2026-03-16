@@ -1,0 +1,11 @@
+[      67ms] [ERROR] WS parse: TypeError: Cannot set properties of null (setting 'textContent')
+    at applyState (http://localhost:7777/static/app.js?t=202603161106:321:34)
+    at handleServerEvent (http://localhost:7777/static/app.js?t=202603161106:124:9)
+    at ws.onmessage (http://localhost:7777/static/app.js?t=202603161106:100:13) @ http://localhost:7777/static/app.js?t=202603161106:100
+[      68ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:7777/:0
+[     186ms] [ERROR] WS parse: TypeError: Cannot set properties of null (setting 'textContent')
+    at applyState (http://localhost:7777/static/app.js?t=202603161106:321:34)
+    at handleServerEvent (http://localhost:7777/static/app.js?t=202603161106:124:9)
+    at ws.onmessage (http://localhost:7777/static/app.js?t=202603161106:100:13) @ http://localhost:7777/static/app.js?t=202603161106:100
+[     187ms] [ERROR] loadPeers: TypeError: Cannot set properties of null (setting 'textContent')
+    at loadPeers (http://localhost:7777/static/app.js?t=202603161106:861:25) @ http://localhost:7777/static/app.js?t=202603161106:934

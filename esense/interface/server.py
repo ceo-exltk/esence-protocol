@@ -92,6 +92,25 @@ def create_app(node: "EsenseNode | None" = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="DID document no generado aún")
         return JSONResponse(json.loads(did_path.read_text()))
 
+    @app.get("/manifest.json")
+    async def serve_manifest() -> FileResponse:
+        """Sirve el manifest.json para PWA."""
+        f = STATIC_DIR / "manifest.json"
+        return FileResponse(
+            str(f),
+            media_type="application/manifest+json"
+        )
+
+    @app.get("/sw.js")
+    async def serve_service_worker() -> FileResponse:
+        """Sirve el Service Worker desde scope raíz."""
+        f = STATIC_DIR / "sw.js"
+        return FileResponse(
+            str(f),
+            media_type="application/javascript",
+            headers={"Service-Worker-Allowed": "/"}
+        )
+
     # ------------------------------------------------------------------
     # Rutas locales UI
     # ------------------------------------------------------------------

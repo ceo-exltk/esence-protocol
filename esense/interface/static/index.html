@@ -23,6 +23,10 @@
       <span id="status-text">conectando...</span>
     </div>
     <div class="header-right">
+      <!-- Profile button — share identity -->
+      <button class="profile-btn" id="btn-profile" title="Mi perfil - compartir identidad" aria-label="Mi perfil">
+        <span class="profile-avatar" id="profile-avatar">?</span>
+      </button>
       <!-- Settings menu toggle -->
       <button class="icon-btn" id="btn-settings" title="Configuración" aria-label="Configuración" aria-haspopup="menu" aria-expanded="false">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
@@ -135,6 +139,56 @@
     </div>
   </div>
 
+  <!-- Profile card modal (hidden by default) -->
+  <div id="profile-card" class="profile-card hidden" role="dialog" aria-modal="true" aria-labelledby="profile-card-title">
+    <div class="profile-card-content">
+      <button class="profile-card-close" id="btn-profile-close" aria-label="Cerrar perfil">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+      <div class="profile-card-header">
+        <div class="profile-card-avatar" id="profile-card-avatar">?</div>
+        <div class="profile-card-info">
+          <h2 id="profile-card-title" class="profile-card-name">Mi Nodo</h2>
+          <p class="profile-card-role">Esense Agent</p>
+        </div>
+      </div>
+      <div class="profile-card-body">
+        <div class="profile-card-section">
+          <label class="profile-card-label">Mi Identificación (DID)</label>
+          <div class="profile-card-did-container">
+            <code class="profile-card-did" id="profile-card-did">did:wba:...</code>
+            <button class="profile-card-copy-btn" id="btn-copy-did" title="Copiar DID">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+              Copiar
+            </button>
+          </div>
+        </div>
+        <div class="profile-card-section">
+          <label class="profile-card-label">Compartir Identidad</label>
+          <p class="profile-card-help">Comparte tu DID con otros nodos para conectar en la red P2P</p>
+          <div class="profile-card-actions">
+            <button class="btn btn-sm" id="btn-share-qr" title="Mostrar código QR">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="4" height="4"/>
+              </svg>
+              QR Code
+            </button>
+            <button class="btn btn-sm" id="btn-profile-open" title="Ver perfil público">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6m4-3h6v6"/><polyline points="9 15 15 9"/>
+              </svg>
+              Perfil
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Main layout -->
   <h1 class="visually-hidden">Esense Node</h1>
   <main id="main-container">
@@ -213,6 +267,6 @@
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
   </script>
-  <script src="/static/app.js?t=202603161108"></script>
+  <script src="/static/app.js?t=202603161120"></script>
 </body>
 </html>

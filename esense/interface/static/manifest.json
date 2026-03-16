@@ -1,0 +1,18 @@
+{
+  "name": "Esense Node",
+  "short_name": "Esense",
+  "description": "Tu agente digital. Protocolo P2P descentralizado.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0d0d",
+  "theme_color": "#7c6af7",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/static/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

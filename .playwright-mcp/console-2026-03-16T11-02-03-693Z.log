@@ -1,0 +1,8 @@
+[      91ms] TypeError: Cannot read properties of null (reading 'addEventListener')
+    at http://localhost:7777/static/app.js:363:13
+    at http://localhost:7777/static/app.js:1678:3
+[     103ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:7777/?nocache=1:0
+[   69104ms] TypeError: Cannot read properties of null (reading 'addEventListener')
+    at http://localhost:7777/static/app.js:363:13
+    at http://localhost:7777/static/app.js:1678:3
+[   69108ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:7777/?nocache=1:0

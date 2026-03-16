@@ -43,6 +43,16 @@
   const btnSettings        = $("btn-settings");
   const settingsDrawer     = $("settings-drawer");
   const btnCloseSettings   = $("btn-close-settings");
+  const btnProfile         = $("btn-profile");
+  const profileAvatar      = $("profile-avatar");
+  const profileCard        = $("profile-card");
+  const btnProfileClose    = $("btn-profile-close");
+  const btnCopyDid         = $("btn-copy-did");
+  const btnShareQr         = $("btn-share-qr");
+  const btnProfileOpen     = $("btn-profile-open");
+  const profileCardAvatar  = $("profile-card-avatar");
+  const profileCardDid     = $("profile-card-did");
+  const profileCardName    = $("profile-card-title");
   const avatarBtn          = $("avatar-btn");
   const moodDropdown       = $("mood-dropdown");
   const feedEmpty          = $("feed-empty");
@@ -400,12 +410,32 @@
   function setPending(n) {
     pendingCount = Math.max(0, n);
     if (pendingCount > 0) {
-      notifBadge.textContent = pendingCount > 9 ? "9+" : String(pendingCount);
-      notifBadge.classList.remove("hidden");
-      btnNotif.style.color = "var(--amber)";
+      notifBadge?.textContent = pendingCount > 9 ? "9+" : String(pendingCount);
+      notifBadge?.classList.remove("hidden");
+      if (btnNotif) btnNotif.style.color = "var(--amber)";
+      // Also show pending count on profile avatar
+      if (btnProfile) {
+        btnProfile.style.background = "var(--amber-dim)";
+        btnProfile.style.borderColor = "var(--amber)";
+        btnProfile.style.color = "var(--amber)";
+        if (profileAvatar) profileAvatar.textContent = pendingCount > 9 ? "9+" : String(pendingCount);
+      }
     } else {
-      notifBadge.classList.add("hidden");
-      btnNotif.style.color = "";
+      notifBadge?.classList.add("hidden");
+      if (btnNotif) btnNotif.style.color = "";
+      // Reset profile avatar to initial
+      if (btnProfile) {
+        btnProfile.style.background = "";
+        btnProfile.style.borderColor = "";
+        btnProfile.style.color = "";
+        const state = nodeState;
+        if (state && state.did) {
+          const parts = state.did.split(":");
+          const nodeName = parts[parts.length - 1] || "node";
+          const firstLetter = (state.node_name || nodeName || "?")[0].toUpperCase();
+          if (profileAvatar) profileAvatar.textContent = firstLetter;
+        }
+      }
     }
     updateFaviconBadge(pendingCount);
     document.title = pendingCount > 0 ? `(${pendingCount}) Esense Node` : "Esense Node";
@@ -431,6 +461,68 @@
     if (settingsDrawer && !settingsDrawer.contains(e.target) && btnSettings && !btnSettings.contains(e.target)) {
       closeSettings();
     }
+  });
+
+  // Profile Card — Share Identity
+  function openProfileCard() {
+    profileCard?.classList.remove("hidden");
+    const state = nodeState;
+    if (state && state.did) {
+      const parts = state.did.split(":");
+      const nodeName = parts[parts.length - 1] || "node";
+      const firstLetter = (state.node_name || nodeName || "?")[0].toUpperCase();
+
+      if (profileCardName) profileCardName.textContent = state.node_name || `@${nodeName}`;
+      if (profileCardAvatar) profileCardAvatar.textContent = firstLetter;
+      if (profileCardDid) profileCardDid.textContent = state.did;
+      if (profileAvatar) profileAvatar.textContent = firstLetter;
+    }
+  }
+  function closeProfileCard() {
+    profileCard?.classList.add("hidden");
+  }
+
+  btnProfile?.addEventListener("click", openProfileCard);
+  btnProfileClose?.addEventListener("click", closeProfileCard);
+
+  // Click outside to close profile card
+  document.addEventListener("click", (e) => {
+    if (profileCard && !profileCard.contains(e.target) && btnProfile && !btnProfile.contains(e.target)) {
+      closeProfileCard();
+    }
+  });
+
+  // Copy DID to clipboard
+  btnCopyDid?.addEventListener("click", async () => {
+    const did = profileCardDid?.textContent || "";
+    if (did) {
+      try {
+        await navigator.clipboard.writeText(did);
+        notify("DID copiado al portapapeles ✓", "success");
+        if (btnCopyDid) btnCopyDid.textContent = "✓ Copiado";
+        setTimeout(() => {
+          if (btnCopyDid) {
+            const svg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+            btnCopyDid.innerHTML = svg + 'Copiar';
+          }
+        }, 2000);
+      } catch (err) {
+        notify("Error al copiar", "error");
+      }
+    }
+  });
+
+  // Open public profile
+  btnProfileOpen?.addEventListener("click", () => {
+    if (profileLink) {
+      window.open(profileLink.href, "_blank");
+      closeProfileCard();
+    }
+  });
+
+  // QR code (placeholder - can be enhanced later)
+  btnShareQr?.addEventListener("click", () => {
+    notify("QR Code — próximamente", "info");
   });
 
   // Theme toggle

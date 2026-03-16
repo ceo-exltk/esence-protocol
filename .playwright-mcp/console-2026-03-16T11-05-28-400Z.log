@@ -1,0 +1,4 @@
+[      59ms] TypeError: Cannot set properties of null (setting 'onclick')
+    at http://localhost:7777/static/app.js?t=202603161105:811:51
+    at http://localhost:7777/static/app.js?t=202603161105:1679:3
+[      60ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:7777/:0
