@@ -410,8 +410,8 @@
   function setPending(n) {
     pendingCount = Math.max(0, n);
     if (pendingCount > 0) {
-      notifBadge?.textContent = pendingCount > 9 ? "9+" : String(pendingCount);
-      notifBadge?.classList.remove("hidden");
+      if (notifBadge) notifBadge.textContent = pendingCount > 9 ? "9+" : String(pendingCount);
+      if (notifBadge) notifBadge.classList.remove("hidden");
       if (btnNotif) btnNotif.style.color = "var(--amber)";
       // Also show pending count on profile avatar
       if (btnProfile) {

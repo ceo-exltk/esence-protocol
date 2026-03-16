@@ -1,2 +1,4 @@
 [      81ms] Invalid left-hand side in assignment
 [      80ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:7777/:0
+[   73710ms] Invalid left-hand side in assignment
+[   73717ms] [WARNING] <meta name="apple-mobile-web-app-capable" content="yes"> is deprecated. Please include <meta name="mobile-web-app-capable" content="yes"> @ http://localhost:7777/:0
