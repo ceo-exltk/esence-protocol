@@ -23,6 +23,8 @@
   const nodeGroups = {};           // peerDid → { el, tids: [], did, direction }
   let currentThreadPeer = null;    // DID of peer whose thread panel is open
   const activeStreams = {};        // stream_id → { tid, contentEl, text }
+  let _wsErrNotified = false;      // anti-spam para errores de WS
+  let currentTheme = "dark";       // dark | light
 
   // ------------------------------------------------------------------
   // DOM refs
@@ -37,6 +39,10 @@
   const moodDot            = $("mood-dot");
   const notifBadge         = $("notif-badge");
   const btnNotif           = $("btn-notif");
+  const btnTheme           = $("btn-theme");
+  const btnSettings        = $("btn-settings");
+  const settingsDrawer     = $("settings-drawer");
+  const btnCloseSettings   = $("btn-close-settings");
   const avatarBtn          = $("avatar-btn");
   const moodDropdown       = $("mood-dropdown");
   const feedEmpty          = $("feed-empty");
@@ -81,6 +87,7 @@
 
     ws.onopen = () => {
       setStatus("online");
+      _wsErrNotified = false;
       clearTimeout(wsReconnectTimer);
       sendWS("get_state");
       sendWS("get_pending");
@@ -95,7 +102,10 @@
     };
 
     ws.onclose = () => { setStatus("offline"); wsReconnectTimer = setTimeout(connect, 3000); };
-    ws.onerror = () => setStatus("offline");
+    ws.onerror = () => {
+      setStatus("offline");
+      if (!_wsErrNotified) { notify("Conexión perdida con el nodo", "error"); _wsErrNotified = true; }
+    };
   }
 
   function sendWS(type, data = {}) {
@@ -304,31 +314,33 @@
     if (state.did) {
       const parts = state.did.split(":");
       const nodeName = parts[parts.length - 1] || "node";
-      profileLink.textContent = `@${nodeName}`;
-      profileLink.title = `Ver perfil público · ${state.did}`;
-      profileLink.href = `/@${nodeName}`;
+      if (profileLink) {
+        profileLink.textContent = `@${nodeName}`;
+        profileLink.title = `Ver perfil público · ${state.did}`;
+        profileLink.href = `/@${nodeName}`;
+      }
       const name = state.node_name || nodeName || "N";
-      avatarInitials.textContent = name[0].toUpperCase();
+      if (avatarInitials) avatarInitials.textContent = name[0].toUpperCase();
     }
 
-    if (state.budget) {
+    if (state.budget && budgetText) {
       const used = state.budget.used_tokens || 0;
       const lim  = state.budget.monthly_limit_tokens || 500_000;
       budgetText.textContent = `${Math.round(used / lim * 100)}% budget`;
     }
 
-    if (typeof state.peer_count === "number")
+    if (typeof state.peer_count === "number" && peersText)
       peersText.textContent = `${state.peer_count} peer${state.peer_count !== 1 ? "s" : ""}`;
 
     if (typeof state.maturity === "number") {
       const pct = Math.round(state.maturity * 100);
-      maturityFill.style.width = `${pct}%`;
-      maturityScore.textContent = `${state.maturity_label || ""} · ${pct}%`;
+      if (maturityFill) maturityFill.style.width = `${pct}%`;
+      if (maturityScore) maturityScore.textContent = `${state.maturity_label || ""} · ${pct}%`;
     }
 
-    if (state.corrections_count !== undefined)
+    if (state.corrections_count !== undefined && maturityCorrections)
       maturityCorrections.textContent = `${state.corrections_count} correcciones`;
-    if (state.patterns_count !== undefined)
+    if (state.patterns_count !== undefined && maturityPatterns)
       maturityPatterns.textContent = `${state.patterns_count} patrones`;
 
     if (state.mood) setMoodUI(state.mood);
@@ -342,34 +354,40 @@
 
   function setMoodUI(mood) {
     currentMood = mood;
-    moodDot.className = `mood-dot ${mood}`;
-    moodDot.title = { available: "Disponible", moderate: "Moderado", absent: "Ausente", dnd: "No molestar" }[mood] || mood;
-    document.querySelectorAll(".mood-btn").forEach((btn) => {
+    if (moodDot) {
+      moodDot.className = `mood-dot ${mood}`;
+      moodDot.title = { available: "Disponible", moderate: "Moderado", absent: "Ausente", dnd: "No molestar" }[mood] || mood;
+    }
+    document.querySelectorAll(".mood-btn, .mood-btn-simple").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.mood === mood);
     });
   }
 
-  // Toggle dropdown on avatar click
-  avatarBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    moodDropdown.classList.toggle("hidden");
-  });
+  // Toggle dropdown on avatar click (legacy — avatar-btn no longer exists in new layout)
+  if (avatarBtn && moodDropdown) {
+    avatarBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      moodDropdown.classList.toggle("hidden");
+      avatarBtn.setAttribute("aria-expanded", String(!moodDropdown.classList.contains("hidden")));
+    });
 
-  // Close dropdown on outside click
-  document.addEventListener("click", (e) => {
-    if (!moodDropdown.contains(e.target) && e.target !== avatarBtn) {
-      moodDropdown.classList.add("hidden");
-    }
-  });
+    // Close dropdown on outside click
+    document.addEventListener("click", (e) => {
+      if (!moodDropdown.contains(e.target) && e.target !== avatarBtn) {
+        moodDropdown.classList.add("hidden");
+        avatarBtn.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
 
-  // Mood button clicks
-  document.querySelectorAll(".mood-btn").forEach((btn) => {
+  // Mood button clicks (handles both old .mood-btn and new .mood-btn-simple)
+  document.querySelectorAll(".mood-btn, .mood-btn-simple").forEach((btn) => {
     btn.addEventListener("click", () => {
       const mood = btn.dataset.mood;
-      if (mood === currentMood) { moodDropdown.classList.add("hidden"); return; }
+      if (mood === currentMood) { moodDropdown?.classList.add("hidden"); return; }
       sendWS("set_mood", { mood });
       setMoodUI(mood);
-      moodDropdown.classList.add("hidden");
+      moodDropdown?.classList.add("hidden");
       const labels = { available: "● Disponible", moderate: "◑ Moderado", absent: "○ Ausente", dnd: "⊗ No molestar" };
       notify(`Modo: ${labels[mood] || mood}`);
     });
@@ -393,7 +411,47 @@
     document.title = pendingCount > 0 ? `(${pendingCount}) Esense Node` : "Esense Node";
   }
 
-  btnNotif.addEventListener("click", () => sendWS("get_pending"));
+  btnNotif?.addEventListener("click", () => sendWS("get_pending"));
+
+  // Settings drawer
+  function openSettings() {
+    settingsDrawer?.classList.remove("hidden");
+    btnSettings?.setAttribute("aria-expanded", "true");
+  }
+  function closeSettings() {
+    settingsDrawer?.classList.add("hidden");
+    btnSettings?.setAttribute("aria-expanded", "false");
+  }
+  btnSettings?.addEventListener("click", () => {
+    if (settingsDrawer?.classList.contains("hidden")) openSettings();
+    else closeSettings();
+  });
+  btnCloseSettings?.addEventListener("click", closeSettings);
+  document.addEventListener("click", (e) => {
+    if (settingsDrawer && !settingsDrawer.contains(e.target) && btnSettings && !btnSettings.contains(e.target)) {
+      closeSettings();
+    }
+  });
+
+  // Theme toggle
+  function initTheme() {
+    const saved = localStorage.getItem("theme") || "dark";
+    currentTheme = saved;
+    document.documentElement.setAttribute("data-theme", saved);
+    console.log("[Theme] Initialized with:", saved);
+  }
+  function toggleTheme() {
+    currentTheme = currentTheme === "dark" ? "light" : "dark";
+    console.log("[Theme] Toggled to:", currentTheme);
+    document.documentElement.setAttribute("data-theme", currentTheme);
+    localStorage.setItem("theme", currentTheme);
+  }
+  if (btnTheme) {
+    btnTheme.addEventListener("click", toggleTheme);
+    console.log("[Theme] Listener attached to btnTheme");
+  } else {
+    console.warn("[Theme] btnTheme not found!");
+  }
 
   // ------------------------------------------------------------------
   // Feed — grouped by sender
@@ -562,9 +620,10 @@
 
     const time      = msg.timestamp ? fmtTime(msg.timestamp) : "";
     const isPending = msg.status === "pending_human_review";
+    const contentHtml = direction === "self" ? renderMarkdown(msg.content || "") : esc(msg.content || "");
 
     el.innerHTML = `
-      <div class="msg-content">${esc(msg.content || "")}</div>
+      <div class="msg-content">${contentHtml}</div>
       <div class="msg-footer">
         <div class="msg-meta-row">
           <span class="msg-type">${esc(typeLabel(msg.type || ""))}</span>
@@ -640,7 +699,7 @@
     `;
     btn.onclick = () => {
       showReview({ ...t.msg, thread_id: tid, proposed_reply: proposed });
-      reviewCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      reviewCard?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     };
   }
 
@@ -652,45 +711,42 @@
     currentReviewThreadId = msg.thread_id;
     pendingApprovalState = null;
 
-    reviewFrom.textContent = shortenDid(msg.from_did || "desconocido");
-    reviewFrom.title = msg.from_did || "";
-    reviewContent.textContent = msg.content || "";
+    if (reviewFrom) reviewFrom.textContent = shortenDid(msg.from_did || "desconocido");
+    if (reviewFrom) reviewFrom.title = msg.from_did || "";
+    if (reviewContent) reviewContent.textContent = msg.content || "";
 
-    learningFeedback.classList.add("hidden");
-    learningFeedback.innerHTML = "";
-    sendConfirmation.classList.add("hidden");
-    sendConfirmation.innerHTML = "";
-    btnApprove.disabled = false;
-    btnReject.disabled = false;
-    diffIndicator.classList.add("hidden");
+    if (learningFeedback) { learningFeedback.classList.add("hidden"); learningFeedback.innerHTML = ""; }
+    if (sendConfirmation) { sendConfirmation.classList.add("hidden"); sendConfirmation.innerHTML = ""; }
+    if (btnApprove) btnApprove.disabled = false;
+    if (btnReject) btnReject.disabled = false;
+    if (diffIndicator) diffIndicator.classList.add("hidden");
 
     // Textarea vacía para respuesta opcional del usuario
-    proposalEdit.value = "";
-    proposalEdit.classList.remove("edited");
-    reviewLoading.classList.add("hidden");
-    reviewProposal.classList.remove("hidden");
+    if (proposalEdit) { proposalEdit.value = ""; proposalEdit.classList.remove("edited"); }
+    if (reviewLoading) reviewLoading.classList.add("hidden");
+    if (reviewProposal) reviewProposal.classList.remove("hidden");
 
-    reviewCard.classList.remove("hidden");
+    if (reviewCard) { reviewCard.classList.remove("hidden"); reviewCard.scrollIntoView?.({ behavior: "smooth", block: "nearest" }); }
   }
 
   function hideReview() {
-    reviewCard.classList.add("hidden");
+    if (reviewCard) reviewCard.classList.add("hidden");
     currentReviewThreadId = null;
   }
 
-  proposalEdit.addEventListener("input", () => {
+  proposalEdit?.addEventListener("input", () => {
     const hasContent = proposalEdit.value.trim() !== "";
     proposalEdit.classList.toggle("edited", hasContent);
-    diffIndicator.classList.toggle("hidden", !hasContent);
+    diffIndicator?.classList.toggle("hidden", !hasContent);
   });
 
   // ------------------------------------------------------------------
   // Approve / Reject
   // ------------------------------------------------------------------
 
-  btnApprove.addEventListener("click", () => {
+  btnApprove?.addEventListener("click", () => {
     if (!currentReviewThreadId) return;
-    const manualReply = proposalEdit.value.trim() || null;
+    const manualReply = proposalEdit?.value.trim() || null;
     const wasEdited   = !!manualReply;
     const recipientDid = threads[currentReviewThreadId]?.msg?.from_did || "";
 
@@ -699,21 +755,30 @@
 
     // Mostrar estado de procesamiento
     if (reviewLoadingText) reviewLoadingText.textContent = wasEdited ? "Enviando…" : "Generando respuesta…";
-    reviewLoading.classList.remove("hidden");
-    reviewProposal.classList.add("hidden");
-    btnApprove.disabled = true;
-    btnReject.disabled = true;
+    reviewLoading?.classList.remove("hidden");
+    reviewProposal?.classList.add("hidden");
+    if (btnApprove) btnApprove.disabled = true;
+    if (btnReject) btnReject.disabled = true;
 
     sendWS("approve", { thread_id: currentReviewThreadId, edited_reply: manualReply });
   });
 
-  btnReject.addEventListener("click", () => {
+  btnReject?.addEventListener("click", () => {
     if (!currentReviewThreadId) return;
+    if (!confirm("¿Rechazar este mensaje? No se puede deshacer.")) return;
     sendWS("reject", { thread_id: currentReviewThreadId });
     notify("Mensaje rechazado");
   });
 
-  btnReviewClose.addEventListener("click", hideReview);
+  btnReviewClose?.addEventListener("click", hideReview);
+
+  const btnCancelGeneration = $("btn-cancel-generation");
+  btnCancelGeneration?.addEventListener("click", () => {
+    reviewLoading.classList.add("hidden");
+    reviewProposal.classList.remove("hidden");
+    btnApprove.disabled = false; btnReject.disabled = false;
+    notify("Generación cancelada — podés rechazar manualmente", "info");
+  });
 
   function showLearningFeedback(wasEdited, prevCorrections, recipientDid) {
     const next  = prevCorrections + 1;
@@ -742,39 +807,43 @@
   }
 
   // ------------------------------------------------------------------
-  // Send message panel
+  // Send message panel (legacy — no longer exists in new layout)
   // ------------------------------------------------------------------
 
-  document.getElementById('btn-send-msg').onclick = async () => {
-    const to_did = document.getElementById('send-to-did').value.trim();
-    const content = document.getElementById('send-content').value.trim();
-    const statusEl = document.getElementById('send-status');
-    if (!to_did || !content) return;
-    statusEl.textContent = 'Enviando…';
-    statusEl.className = 'send-status sending';
-    try {
-      const resp = await fetch('/api/send', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({to_did, content}),
-      });
-      const data = await resp.json();
-      if (data.status === 'sent') {
-        notify('Mensaje enviado ✓', 'success');
-        document.getElementById('send-content').value = '';
-        statusEl.textContent = '';
-        statusEl.className = 'send-status';
-      } else {
-        statusEl.textContent = 'Error al enviar';
-        statusEl.className = 'send-status error';
-        notify('Error al enviar', 'error');
+  const btnSendMsg = document.getElementById('btn-send-msg');
+  if (btnSendMsg) {
+    btnSendMsg.onclick = async () => {
+      const to_did = document.getElementById('send-to-did')?.value.trim();
+      const content = document.getElementById('send-content')?.value.trim();
+      const statusEl = document.getElementById('send-status');
+      if (!to_did || !content) return;
+      if (statusEl) statusEl.textContent = 'Enviando…';
+      if (statusEl) statusEl.className = 'send-status sending';
+      try {
+        const resp = await fetch('/api/send', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({to_did, content}),
+        });
+        const data = await resp.json();
+        if (data.status === 'sent') {
+          notify('Mensaje enviado ✓', 'success');
+          const sendContentEl = document.getElementById('send-content');
+          if (sendContentEl) sendContentEl.value = '';
+          if (statusEl) statusEl.textContent = '';
+          if (statusEl) statusEl.className = 'send-status';
+        } else {
+          if (statusEl) statusEl.textContent = 'Error al enviar';
+          if (statusEl) statusEl.className = 'send-status error';
+          notify('Error al enviar', 'error');
+        }
+      } catch (err) {
+        if (statusEl) statusEl.textContent = 'Error de red';
+        if (statusEl) statusEl.className = 'send-status error';
+        notify('Error de red', 'error');
       }
-    } catch (err) {
-      statusEl.textContent = 'Error de red';
-      statusEl.className = 'send-status error';
-      notify('Error de red', 'error');
-    }
-  };
+    };
+  }
 
   // ------------------------------------------------------------------
   // Peers panel
@@ -791,10 +860,11 @@
 
       const list = document.getElementById('peers-list');
       const badge = document.getElementById('peer-count-badge');
-      badge.textContent = peers.length;
+      if (!list) return; // Legacy element no longer in new layout
+      if (badge) badge.textContent = peers.length;
       list.innerHTML = '';
       if (!peers.length) {
-        list.innerHTML = '<li class="peer-empty">Sin peers conocidos</li>';
+        list.innerHTML = '<li class="peer-empty">Sin peers — agregá el primero abajo.</li>';
         return;
       }
       peers.forEach((peer) => {
@@ -831,12 +901,15 @@
         const saveAlias = async () => {
           const did = aliasInput.dataset.did;
           const newAlias = aliasInput.value.trim();
-          await fetch(`/api/peers/${encodeURIComponent(did)}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ alias: newAlias }),
-          });
-          loadPeers();
+          try {
+            const resp = await fetch(`/api/peers/${encodeURIComponent(did)}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ alias: newAlias }),
+            });
+            if (resp.ok) { notify("Alias guardado", "success"); loadPeers(); }
+            else { notify("Error guardando alias", "error"); }
+          } catch (e) { notify("Error guardando alias", "error"); }
         };
         aliasInput.addEventListener('blur', saveAlias);
         aliasInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); saveAlias(); } });
@@ -863,6 +936,7 @@
       });
     } catch (err) {
       console.error('loadPeers:', err);
+      notify("No se pudo cargar peers", "error");
     }
   }
 
@@ -947,21 +1021,25 @@
   function showOnboarding() {
     obStep = 0;
     obOverlay.classList.remove("hidden");
+    trapFocus(obOverlay);
     renderObStep();
   }
 
   function hideOnboarding() {
+    releaseFocusTrap();
     obOverlay.classList.add("hidden");
   }
 
   function renderObStep() {
     const step = OB_STEPS[obStep];
     const total = OB_STEPS.length;
-    const pct = Math.round(((obStep) / total) * 100);
+    const pct = Math.round(((obStep + 1) / total) * 100);
     obBar.style.width = `${pct}%`;
     obStepNum.textContent = `${obStep + 1} / ${total}`;
     btnObSkip.style.display = step.required ? "none" : "";
     btnObNext.textContent = obStep === total - 1 ? "Empezar →" : "Siguiente →";
+    const btnObPrev = $("btn-ob-prev");
+    if (btnObPrev) btnObPrev.style.display = obStep > 0 ? "" : "none";
 
     if (step.type === "text") {
       obBody.innerHTML = `
@@ -1011,6 +1089,15 @@
       const val = document.getElementById("ob-input")?.value.trim() || "";
       if (step.required && !val) {
         document.getElementById("ob-input")?.classList.add("ob-required-shake");
+        let errorMsg = obBody.querySelector(".ob-error-msg");
+        if (!errorMsg) {
+          errorMsg = document.createElement("p");
+          errorMsg.className = "ob-error-msg";
+          errorMsg.textContent = "Este campo es requerido para continuar.";
+          errorMsg.style.color = "var(--red)"; errorMsg.style.fontSize = "12px"; errorMsg.style.marginTop = "8px";
+          document.getElementById("ob-input")?.parentNode.appendChild(errorMsg);
+          setTimeout(() => errorMsg.remove(), 3000);
+        }
         setTimeout(() => document.getElementById("ob-input")?.classList.remove("ob-required-shake"), 600);
         return;
       }
@@ -1059,6 +1146,10 @@
     obAnswers[OB_STEPS[obStep].key] = "";
     if (obStep < OB_STEPS.length - 1) { obStep++; renderObStep(); }
     else submitOnboarding();
+  });
+  const btnObPrev = $("btn-ob-prev");
+  btnObPrev?.addEventListener("click", () => {
+    if (obStep > 0) { obStep--; renderObStep(); }
   });
   btnObLater?.addEventListener("click", async () => {
     // Marcar como completo sin guardar nada — el usuario configurará después
@@ -1120,20 +1211,13 @@
     const ng = nodeGroups[peerDid];
     const tids = ng?.tids || [];
 
-    // Fetch full thread data for each thread_id
-    const allMsgs = [];
-    for (const tid of tids) {
-      try {
-        const resp = await fetch(`/api/threads/${encodeURIComponent(tid)}`);
-        if (resp.ok) {
-          const data = await resp.json();
-          allMsgs.push(...(data.messages || []));
-        }
-      } catch (_) {
-        const t = threads[tid];
-        if (t) allMsgs.push(t.msg);
-      }
-    }
+    // Fetch full thread data for each thread_id in parallel
+    const results = await Promise.allSettled(
+      tids.map(tid => fetch(`/api/threads/${encodeURIComponent(tid)}`).then(r => r.ok ? r.json() : null))
+    );
+    const allMsgs = results.flatMap(r =>
+      r.status === "fulfilled" && r.value ? (r.value.messages || []) : []
+    );
 
     // Sort by timestamp
     allMsgs.sort((a, b) => (a.timestamp || "").localeCompare(b.timestamp || ""));
@@ -1149,8 +1233,9 @@
       const isPending = m.status === "pending_human_review";
       const row = document.createElement("div");
       row.className = `thread-msg-row ${isOwn ? "mine" : "theirs"}${isPending ? " pending" : ""}`;
+      const contentHtml = m.direction === "self" ? renderMarkdown(m.content || "") : esc(m.content || "");
       row.innerHTML = `
-        <div class="thread-msg-bubble">${esc(m.content || "")}</div>
+        <div class="thread-msg-bubble">${contentHtml}</div>
         <div style="display:flex;gap:6px;align-items:center;">
           <span class="thread-msg-time">${m.timestamp ? fmtTime(m.timestamp) : ""}</span>
           ${m.status ? `<span class="thread-msg-status">${statusLabel(m.status)}</span>` : ""}
@@ -1349,7 +1434,7 @@
 
   function setStatus(state) {
     statusDot.className = `status-dot ${state}`;
-    statusText.textContent = { online: "online", offline: "offline", connecting: "conectando…" }[state] || state;
+    statusText.textContent = { online: "conectado", offline: "desconectado", connecting: "conectando…" }[state] || state;
   }
 
   // ------------------------------------------------------------------
@@ -1357,10 +1442,12 @@
   // ------------------------------------------------------------------
 
   function notify(msg, type = "") {
+    const container = $("toast-container");
+    if (!container) return;
     const el = document.createElement("div");
-    el.className = `toast ${type}`;
+    el.className = `toast${type ? " " + type : ""}`;
     el.textContent = msg;
-    document.body.appendChild(el);
+    container.appendChild(el);
     setTimeout(() => {
       el.style.opacity = "0";
       el.style.transition = "opacity 0.3s";
@@ -1405,9 +1492,9 @@
   function typeLabel(t) {
     return {
       thread_message: "mensaje",
-      thread_reply: "reply",
-      peer_intro: "peer intro",
-      capacity_status: "capacidad",
+      thread_reply: "respuesta",
+      peer_intro: "nuevo contacto",
+      capacity_status: "estado de red",
       self_reply: "agente",
       chat: "chat",
     }[t] || t;
@@ -1417,6 +1504,42 @@
     return String(s)
       .replace(/&/g, "&amp;").replace(/</g, "&lt;")
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function renderMarkdown(text) {
+    if (!text) return "";
+    let s = esc(text);
+    s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+    s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/_([^_\n]+)_/g, "<em>$1</em>");
+    s = s.replace(/\n\n+/g, "<br><br>");
+    s = s.replace(/\n/g, "<br>");
+    s = s.replace(/(https:\/\/[^\s<"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+    return s;
+  }
+
+  // ------------------------------------------------------------------
+  // Focus trap utilities
+  // ------------------------------------------------------------------
+
+  const FOCUSABLE = 'button:not([disabled]),[href],input,textarea,[tabindex]:not([tabindex="-1"])';
+  let _trapEl = null, _trapHandler = null;
+
+  function trapFocus(el) {
+    _trapEl = el;
+    const nodes = () => [...el.querySelectorAll(FOCUSABLE)];
+    _trapHandler = (e) => {
+      if (e.key !== "Tab") return;
+      const all = nodes(); const first = all[0]; const last = all[all.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+    };
+    el.addEventListener("keydown", _trapHandler);
+    setTimeout(() => nodes()[0]?.focus(), 50);
+  }
+
+  function releaseFocusTrap() {
+    if (_trapEl) { _trapEl.removeEventListener("keydown", _trapHandler); _trapEl = null; }
   }
 
   // ------------------------------------------------------------------
@@ -1453,6 +1576,7 @@
       document.getElementById("context-editor").value = data.content || "";
     } catch (err) {
       console.error("loadContext:", err);
+      notify("No se pudo cargar contexto", "error");
     }
   }
 
@@ -1554,6 +1678,7 @@
   // Init
   // ------------------------------------------------------------------
 
+  initTheme();
   connect();
   setInterval(() => sendWS("get_state"), 30000);
   updateFaviconBadge(0);

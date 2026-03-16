@@ -3,307 +3,192 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#7c6af7">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Esense Node</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
-  <!-- Header -->
+  <!-- Header — Simplified -->
   <header id="header">
     <div class="header-left">
       <span class="logo">esense</span>
-      <span class="version">v0.2</span>
     </div>
     <div class="header-center">
       <span class="status-dot" id="status-dot"></span>
       <span id="status-text">conectando...</span>
-      <span class="sep">·</span>
-      <span id="budget-text">—</span>
-      <span class="sep">·</span>
-      <span id="peers-text">0 peers</span>
     </div>
     <div class="header-right">
-      <!-- Auto-approve toggle -->
-      <button class="icon-btn" id="btn-auto-approve" title="Auto-aprobación: desactivada">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      <!-- Settings menu toggle -->
+      <button class="icon-btn" id="btn-settings" title="Configuración" aria-label="Configuración" aria-haspopup="menu" aria-expanded="false">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>
         </svg>
       </button>
-      <!-- Notification bell -->
-      <button class="icon-btn" id="btn-notif" title="Mensajes pendientes">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-        </svg>
-        <span class="notif-badge hidden" id="notif-badge">0</span>
-      </button>
-      <!-- User avatar + mood dot + dropdown -->
-      <div class="avatar-wrap" id="avatar-wrap">
-        <button class="avatar-btn" id="avatar-btn" title="Disponibilidad">
-          <div class="user-avatar" id="user-avatar">
-            <span id="avatar-initials">N</span>
-          </div>
-          <span class="mood-dot" id="mood-dot"></span>
-        </button>
-        <!-- Mood dropdown -->
-        <div class="mood-dropdown hidden" id="mood-dropdown">
-          <div class="mood-dropdown-title">Disponibilidad</div>
-          <button class="mood-btn" data-mood="available">
-            <span class="mood-icon available">●</span>
-            <div class="mood-info">
-              <span class="mood-name">Disponible</span>
-              <span class="mood-desc">El agente responde solo</span>
-            </div>
-          </button>
-          <button class="mood-btn" data-mood="moderate">
-            <span class="mood-icon moderate">◑</span>
-            <div class="mood-info">
-              <span class="mood-name">Moderado</span>
-              <span class="mood-desc">Reviso los importantes</span>
-            </div>
-          </button>
-          <button class="mood-btn" data-mood="absent">
-            <span class="mood-icon absent">○</span>
-            <div class="mood-info">
-              <span class="mood-name">Ausente</span>
-              <span class="mood-desc">Acumula, no responde</span>
-            </div>
-          </button>
-          <button class="mood-btn" data-mood="dnd">
-            <span class="mood-icon dnd">⊗</span>
-            <div class="mood-info">
-              <span class="mood-name">No molestar</span>
-              <span class="mood-desc">Rechaza todo</span>
-            </div>
-          </button>
-        </div>
-      </div>
-      <a id="profile-link" class="did-pill" href="#" target="_blank" title="Ver perfil público">—</a>
     </div>
   </header>
 
-  <!-- Main layout -->
-  <main>
+  <!-- Settings drawer (hidden by default) -->
+  <div id="settings-drawer" class="settings-drawer hidden">
+    <div class="settings-header">
+      <span>Configuración</span>
+      <button class="icon-btn" id="btn-close-settings" aria-label="Cerrar configuración">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="settings-body">
+      <!-- Availability -->
+      <div class="settings-section">
+        <h4>Disponibilidad</h4>
+        <div class="mood-list">
+          <button class="mood-btn-simple" data-mood="available" title="El agente responde solo">
+            <span class="mood-icon available">●</span> Disponible
+          </button>
+          <button class="mood-btn-simple" data-mood="moderate" title="Reviso los importantes">
+            <span class="mood-icon moderate">◑</span> Moderado
+          </button>
+          <button class="mood-btn-simple" data-mood="absent" title="Acumula, no responde">
+            <span class="mood-icon absent">○</span> Ausente
+          </button>
+          <button class="mood-btn-simple" data-mood="dnd" title="Rechaza todo">
+            <span class="mood-icon dnd">⊗</span> No molestar
+          </button>
+        </div>
+      </div>
 
-    <!-- Feed central -->
-    <section id="feed">
+      <!-- Contactos -->
+      <div class="settings-section">
+        <h4>Contactos</h4>
+        <ul id="peers-list-settings"></ul>
+        <div class="peer-add-row">
+          <input id="new-peer-did" type="text" placeholder="did:wba:..." autocomplete="off" spellcheck="false" />
+          <button id="btn-add-peer" class="btn btn-add-peer" title="Agregar contacto">+</button>
+        </div>
+      </div>
+
+      <!-- Mi perfil -->
+      <div class="settings-section">
+        <h4>Mi perfil</h4>
+        <textarea id="context-editor" rows="6" placeholder="Escribí sobre vos: proyectos actuales, contexto, preferencias…"></textarea>
+        <button id="btn-save-context" class="btn btn-save">Guardar</button>
+        <span id="context-save-status" class="save-status"></span>
+      </div>
+
+      <!-- Madurez del agente -->
+      <div class="settings-section">
+        <h4>Madurez del agente</h4>
+        <div class="maturity-stats-drawer">
+          <span id="maturity-score" class="maturity-score">nascent</span>
+          <span class="maturity-stat">
+            <span id="maturity-corrections">0</span> correcciones
+          </span>
+          <span class="maturity-stat">
+            <span id="maturity-patterns">0</span> patrones
+          </span>
+        </div>
+        <div class="maturity-bar">
+          <div id="maturity-fill" class="maturity-fill" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Theme + Auto-approve -->
+      <div class="settings-section">
+        <div class="settings-toggle-row">
+          <label>Tema</label>
+          <button class="icon-btn" id="btn-theme" title="Cambiar tema" aria-label="Cambiar tema">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="theme-sun">
+              <circle cx="12" cy="12" r="5"/>
+              <line x1="12" y1="1" x2="12" y2="3"/>
+              <line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/>
+              <line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" class="theme-moon">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          </button>
+        </div>
+        <div class="settings-toggle-row">
+          <label>Responder automáticamente</label>
+          <button class="toggle-switch" id="btn-auto-approve" title="Auto-aprobación" aria-label="Auto-aprobación">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Perfil público -->
+      <div class="settings-section settings-footer">
+        <a id="profile-link" href="#" target="_blank" title="Ver perfil público">Ver perfil público →</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main layout -->
+  <h1 class="visually-hidden">Esense Node</h1>
+  <main id="main-container">
+
+    <!-- Feed central (full width) -->
+    <section id="feed" aria-live="polite" aria-label="Feed de mensajes">
       <div id="feed-empty" class="feed-empty">
         <div class="feed-empty-icon">
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
         </div>
         <p>El agente está esperando mensajes.</p>
         <p class="feed-sub">Cuando lleguen mensajes de otros nodos aparecerán aquí.</p>
+        <p class="feed-sub">Podés hablar con tu agente usando el chat de abajo.</p>
       </div>
       <div id="messages"></div>
     </section>
-
-    <!-- Sidebar derecho -->
-    <aside id="sidebar">
-
-      <!-- Thread detail panel (slides over sidebar) -->
-      <div id="thread-panel" class="thread-panel hidden">
-        <div class="thread-panel-header">
-          <button class="icon-btn" id="btn-thread-close" title="Volver">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="15 18 9 12 15 6"/>
-            </svg>
-          </button>
-          <div class="thread-panel-info">
-            <span id="thread-panel-name" class="thread-panel-name"></span>
-            <span id="thread-panel-did" class="thread-panel-did"></span>
-          </div>
-        </div>
-        <div id="thread-messages" class="thread-messages"></div>
-        <div class="thread-reply-box">
-          <textarea id="thread-reply-text" rows="2" placeholder="Responder…" maxlength="2000"></textarea>
-          <div class="thread-reply-actions">
-            <button class="btn btn-approve-all hidden">Aprobar · Enviar</button>
-            <button id="btn-thread-reply" class="btn btn-send">
-              Enviar
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Review card -->
-      <div id="review-card" class="review-card hidden">
-        <div class="review-header">
-          <div class="review-title-row">
-            <span class="review-badge">
-              <span class="pulse-dot"></span>
-              Respuesta propuesta
-            </span>
-            <button class="icon-btn" id="btn-review-close" title="Cerrar">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
-            </button>
-          </div>
-          <div class="review-meta">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-            </svg>
-            <span id="review-from" class="review-from">—</span>
-          </div>
-        </div>
-
-        <!-- Mensaje recibido -->
-        <div class="review-block">
-          <div class="review-block-label">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-            </svg>
-            Mensaje recibido
-          </div>
-          <div id="review-content" class="review-content"></div>
-        </div>
-
-        <!-- Respuesta manual (opcional) -->
-        <div id="review-proposal" class="review-block proposal-block">
-          <div class="review-block-label-row">
-            <div class="review-block-label">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-              </svg>
-              Tu respuesta
-            </div>
-            <span class="edit-hint">opcional · vacío = responde la IA</span>
-          </div>
-          <textarea
-            id="proposal-edit"
-            class="proposal-edit"
-            rows="3"
-            placeholder="Escribí tu respuesta, o dejá vacío para que el agente responda…"
-          ></textarea>
-          <!-- Manual reply indicator -->
-          <div class="diff-indicator hidden" id="diff-indicator">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-            </svg>
-            Respuesta manual — el agente no generará
-          </div>
-        </div>
-
-        <!-- Loading (visible durante generación + envío) -->
-        <div id="review-loading" class="review-loading hidden">
-          <span class="spinner"></span>
-          <span id="review-loading-text">Generando respuesta…</span>
-        </div>
-
-        <!-- Acciones -->
-        <div class="review-actions">
-          <button id="btn-approve" class="btn btn-approve">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-            Aprobar y enviar
-          </button>
-          <button id="btn-reject" class="btn btn-reject">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-            Rechazar
-          </button>
-        </div>
-
-        <!-- Confirmación de envío (aparece al aprobar) -->
-        <div id="send-confirmation" class="send-confirmation hidden"></div>
-        <!-- Learning feedback (aparece al aprobar) -->
-        <div id="learning-feedback" class="learning-feedback hidden"></div>
-      </div>
-
-      <!-- Send message panel -->
-      <section id="send-panel" class="card">
-        <h3>Enviar mensaje</h3>
-        <input id="send-to-did" type="text" placeholder="did:wba:domain:name" autocomplete="off" spellcheck="false" />
-        <textarea id="send-content" rows="3" placeholder="Contenido..."></textarea>
-        <button id="btn-send-msg" class="btn btn-send">Enviar</button>
-        <div id="send-status" class="send-status"></div>
-      </section>
-
-      <!-- Peers panel -->
-      <section id="peers-panel" class="card">
-        <h3>Peers <span id="peer-count-badge" class="badge">0</span></h3>
-        <ul id="peers-list"></ul>
-        <div class="peer-add-row">
-          <input id="new-peer-did" type="text" placeholder="did:wba:..." autocomplete="off" spellcheck="false" />
-          <button id="btn-add-peer" class="btn btn-add-peer" title="Agregar peer">+</button>
-        </div>
-      </section>
-
-      <!-- Context editor panel -->
-      <details id="context-panel" class="card collapsible">
-        <summary class="card-toggle">
-          <span>Contexto del nodo</span>
-          <span class="toggle-icon">›</span>
-        </summary>
-        <div class="context-body">
-          <textarea id="context-editor" rows="8" placeholder="Conocimiento acumulado..."></textarea>
-          <div class="context-actions">
-            <span id="context-save-status" class="save-status"></span>
-            <button id="btn-save-context" class="btn btn-save">Guardar</button>
-          </div>
-        </div>
-      </details>
-
-      <!-- Maturity card -->
-      <div class="maturity-card" id="maturity-card">
-        <div class="maturity-header">
-          <span class="maturity-label">Essence maturity</span>
-          <span id="maturity-score" class="maturity-score">nascent</span>
-        </div>
-        <div class="maturity-bar">
-          <div id="maturity-fill" class="maturity-fill" style="width: 0%"></div>
-        </div>
-        <div class="maturity-stats">
-          <span id="maturity-corrections" class="maturity-stat">0 correcciones</span>
-          <span class="maturity-stat-sep">·</span>
-          <span id="maturity-patterns" class="maturity-stat">0 patrones</span>
-        </div>
-      </div>
-
-      <!-- Chat con propio agente -->
-      <div id="chat-input">
-        <div class="chat-label">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
-          Hablá con tu agente
-        </div>
-        <textarea
-          id="input-text"
-          placeholder="Enter para enviar · Shift+Enter para nueva línea"
-          rows="3"
-          maxlength="2000"
-        ></textarea>
-        <div class="input-actions">
-          <span id="char-count" class="char-count">0 / 2000</span>
-          <button id="btn-send" class="btn btn-send">
-            Enviar
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-    </aside>
   </main>
 
+  <!-- Chat con propio agente (prominent footer) -->
+  <div id="chat-input" class="chat-input-footer">
+    <div class="chat-label">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      Hablá con tu agente
+    </div>
+    <textarea
+      id="input-text"
+      placeholder="Enter para enviar · Shift+Enter para nueva línea"
+      rows="3"
+      maxlength="2000"
+    ></textarea>
+    <div class="input-actions">
+      <span id="char-count" class="char-count">0 / 2000</span>
+      <button id="btn-send" class="btn btn-send">
+        Enviar
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" aria-live="polite" role="status"></div>
+
   <!-- Onboarding overlay -->
-  <div id="onboarding-overlay" class="onboarding-overlay hidden">
+  <div id="onboarding-overlay" class="onboarding-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="ob-dialog-title">
     <div class="onboarding-card">
       <div class="onboarding-top">
-        <span class="logo">esense</span>
+        <h1 id="ob-dialog-title" class="logo">esense</h1>
         <div class="onboarding-progress-wrap">
           <div class="onboarding-bar" id="onboarding-bar"></div>
         </div>
@@ -311,15 +196,23 @@
       </div>
       <div id="onboarding-body" class="onboarding-body"></div>
       <div class="onboarding-footer">
-        <button class="onboarding-skip-btn" id="btn-ob-skip">Saltar</button>
-        <button class="btn btn-ob-next" id="btn-ob-next">Siguiente →</button>
+        <button class="onboarding-skip-btn" id="btn-ob-skip">Omitir este paso</button>
+        <div style="display:flex;gap:8px;margin-left:auto">
+          <button id="btn-ob-prev" class="btn-sm" style="display:none">← Anterior</button>
+          <button class="btn btn-ob-next" id="btn-ob-next">Siguiente →</button>
+        </div>
       </div>
       <div class="onboarding-later">
-        <button id="btn-ob-later">Configurar más tarde</button>
+        <button id="btn-ob-later">Completar más tarde</button>
       </div>
     </div>
   </div>
 
-  <script src="/static/app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+  </script>
+  <script src="/static/app.js?t=202603161108"></script>
 </body>
 </html>
