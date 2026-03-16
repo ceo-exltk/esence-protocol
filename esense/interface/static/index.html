@@ -9,7 +9,7 @@
   <title>Esense Node</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="manifest" href="/manifest.json">
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?t=202603162040">
 </head>
 <body>
 
@@ -140,7 +140,7 @@
   </div>
 
   <!-- Profile card modal (hidden by default) -->
-  <div id="profile-card" class="profile-card hidden" role="dialog" aria-modal="true" aria-labelledby="profile-card-title" style="display: none !important;">
+  <div id="profile-card" class="profile-card hidden" role="dialog" aria-modal="true" aria-labelledby="profile-card-title">
     <div class="profile-card-content">
       <button class="profile-card-close" id="btn-profile-close" aria-label="Cerrar perfil">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
@@ -267,6 +267,6 @@
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
   </script>
-  <script src="/static/app.js?t=202603161123"></script>
+  <script src="/static/app.js?t=202603162035"></script>
 </body>
 </html>

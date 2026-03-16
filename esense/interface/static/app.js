@@ -700,7 +700,7 @@
 
     // Click on header → open thread panel (only for inbound peer conversations)
     const header = el.querySelector(".msg-group-header");
-    if (direction === "inbound" && peerDid !== "self") {
+    if (header && direction === "inbound" && peerDid !== "self" && threadPanel) {
       header.style.cursor = "pointer";
       header.addEventListener("click", () => openThreadPanel(peerDid));
     }
@@ -1271,6 +1271,7 @@
 
   // Renders the pending-messages banner inside the thread panel
   function renderPendingBanner(peerDid) {
+    if (!threadPanel) return;
     const existing = threadPanel.querySelector(".thread-pending-banner");
     if (existing) existing.remove();
 
@@ -1293,6 +1294,7 @@
   }
 
   async function openThreadPanel(peerDid) {
+    if (!threadPanel || !threadMessages || !threadPanelName || !threadPanelDid) return;
     currentThreadPeer = peerDid;
     const label = shortenDid(peerDid);
     threadPanelName.textContent = label;
@@ -1346,6 +1348,7 @@
 
   // Show/hide "Aprobar todo" button depending on pending count
   function updateApproveAllBtn(peerDid) {
+    if (!threadPanel) return;
     const existing = threadPanel.querySelector(".btn-approve-all");
     const pendingTids = getPendingTids(peerDid || currentThreadPeer);
     if (!existing) return;
@@ -1358,7 +1361,7 @@
   }
 
   function closeThreadPanel() {
-    threadPanel.classList.add("hidden");
+    if (threadPanel) threadPanel.classList.add("hidden");
     currentThreadPeer = null;
   }
 
@@ -1366,13 +1369,13 @@
 
   // Approve all pending from this peer with one reply
   async function approveAllPending(content) {
-    if (!currentThreadPeer) return;
+    if (!currentThreadPeer || !threadPanel) return;
     const pendingTids = getPendingTids(currentThreadPeer);
     if (!pendingTids.length) return;
 
     const btn = threadPanel.querySelector(".btn-approve-all");
     if (btn) { btn.disabled = true; btn.textContent = "Enviando…"; }
-    btnThreadReply.disabled = true;
+    if (btnThreadReply) btnThreadReply.disabled = true;
 
     // Approve each pending thread with the same reply (or null for LLM if empty)
     const editedReply = content || null;
@@ -1389,7 +1392,7 @@
     }
 
     // Add own message to thread view
-    if (content) {
+    if (content && threadMessages) {
       const row = document.createElement("div");
       row.className = "thread-msg-row mine";
       row.innerHTML = `
@@ -1400,12 +1403,12 @@
       threadMessages.scrollTop = threadMessages.scrollHeight;
     }
 
-    threadReplyText.value = "";
+    if (threadReplyText) threadReplyText.value = "";
     notify(`${successCount} mensaje${successCount !== 1 ? "s" : ""} aprobado${successCount !== 1 ? "s" : ""} ✓`, "success");
     if (btn) { btn.disabled = false; btn.classList.add("hidden"); }
-    btnThreadReply.disabled = false;
+    if (btnThreadReply) btnThreadReply.disabled = false;
     // Remove pending banner
-    threadPanel.querySelector(".thread-pending-banner")?.remove();
+    if (threadPanel) threadPanel.querySelector(".thread-pending-banner")?.remove();
   }
 
   btnThreadReply?.addEventListener("click", async () => {

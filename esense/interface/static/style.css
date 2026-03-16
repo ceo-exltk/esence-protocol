@@ -1109,7 +1109,9 @@ input:focus-visible, textarea:focus-visible {
 }
 
 .profile-card.hidden {
-  display: none;
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .profile-card-content {
